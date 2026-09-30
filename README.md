@@ -22,6 +22,17 @@ curl http://localhost:8080/healthz
 
 The endpoint returns `{"status":"ok"}`. Set `API_ADDR` to change the listen address.
 
+## Feature journeys
+
+The demo contains two read-only vertical slices that represent the two product areas:
+
+- Credit Card: `GET /api/v1/cards`, `GET /api/v1/cards/{cardID}/summary`, and `GET /api/v1/cards/{cardID}/transactions`.
+- Trading: `GET /api/v1/portfolio` and `GET /api/v1/portfolio/positions`.
+
+The API currently serves deterministic in-memory data so the mobile workflows can be exercised without a database or external market provider. The app presents explicit loading, empty, and error states, and the Trading slice intentionally stops short of order execution. In a production system, the next boundaries would be authentication and authorization, persistent repositories, monetary types, dependency-aware readiness checks, request timeouts, audit logging, and market-data freshness.
+
+The frontend switches between the two journeys with the Credit Card and Trading tabs. `EXPO_PUBLIC_API_URL` remains the only environment-specific client setting.
+
 Run backend tests with `cd backend && go test ./...`.
 
 ## Run the frontend
