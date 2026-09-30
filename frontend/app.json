@@ -1,0 +1,13 @@
+{
+  "expo": {
+    "name": "Cashi",
+    "slug": "cashi",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#f4f7f5"
+    },
+    "assetBundlePatterns": ["**/*"]
+  }
+}
