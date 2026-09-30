@@ -2,6 +2,7 @@ import { useState } from 'react';
 import {
   ActivityIndicator,
   SafeAreaView,
+  ScrollView,
   StatusBar,
   StyleSheet,
   Text,
@@ -94,7 +95,12 @@ export default function App() {
           </Pressable>
         </View>
 
-        <View style={styles.content}>
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator
+        >
+          <View style={styles.content}>
           <Text style={styles.eyebrow}>{feature === 'card' ? 'CREDIT / EVERYDAY' : 'TRADING / LONG TERM'}</Text>
           <Text style={styles.title}>{feature === 'card' ? 'Your money, at a glance.' : 'Invest with a little more room.'}</Text>
           <Text style={styles.description}>
@@ -126,12 +132,13 @@ export default function App() {
               <Text style={styles.buttonArrow}>↗</Text>
             </Pressable>
           </View>
-        </View>
+          </View>
 
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>BUILT FOR WHAT'S NEXT</Text>
-          <Text style={styles.footerText}>CASHI 2026</Text>
-        </View>
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>BUILT FOR WHAT'S NEXT</Text>
+            <Text style={styles.footerText}>CASHI 2026</Text>
+          </View>
+        </ScrollView>
       </View>
     </SafeAreaView>
   );
@@ -204,6 +211,8 @@ const styles = StyleSheet.create({
   wordmark: { marginLeft: 9, color: '#183a2c', fontSize: 20, fontWeight: '700' },
   version: { marginLeft: 'auto', color: '#789085', fontSize: 10, fontWeight: '700', letterSpacing: 1 },
   tabs: { flexDirection: 'row', gap: 24, height: 54, alignItems: 'flex-end', borderBottomWidth: 1, borderBottomColor: '#dce5df' },
+  scroll: { flex: 1 },
+  scrollContent: { flexGrow: 1 },
   tab: { height: 54, justifyContent: 'center', borderBottomWidth: 2, borderBottomColor: 'transparent' },
   activeTab: { borderBottomColor: '#16764f' },
   tabText: { color: '#789085', fontSize: 13, fontWeight: '600' },
