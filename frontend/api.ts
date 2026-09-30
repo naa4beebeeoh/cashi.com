@@ -3,7 +3,9 @@ function resolveApiUrl() {
   if (configuredUrl) return configuredUrl;
 
   if (typeof window !== 'undefined' && window.location?.origin) {
-    return window.location.origin.replace('-8081.', '-8080.');
+    return window.location.origin
+      .replace('-8081.', '-8080.')
+      .replace(':8081', ':8080');
   }
 
   return 'http://localhost:8080';
