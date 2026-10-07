@@ -20,6 +20,18 @@ import {
   PaymentResult,
 } from './api';
 
+/** Brand tokens aligned with cashi.com / Cashi card app. */
+const colors = {
+  orange: '#FF5C00',
+  orangeDeep: '#E24F00',
+  white: '#FFFFFF',
+  black: '#171719',
+  muted: '#6B6B70',
+  line: '#E8E8EA',
+  danger: '#B42318',
+  track: '#F0F0F2',
+};
+
 const USERS = [
   { id: 'user_a', label: 'Ayu' },
   { id: 'user_b', label: 'Budi' },
@@ -138,16 +150,31 @@ export default function App() {
     }
   }
 
+  const budgetPct = campaign
+    ? Math.min(100, (campaign.budgetSpentIdr / Math.max(campaign.budgetTotalIdr, 1)) * 100)
+    : 0;
+
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" />
+      <StatusBar barStyle="dark-content" backgroundColor={colors.white} />
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <View style={styles.topLine}>
-          <View style={styles.mark}>
-            <Text style={styles.markText}>c</Text>
+        <View style={styles.nav}>
+          <Text style={styles.navWordmark}>cashi</Text>
+          <Text style={styles.navMeta}>
+            {connection === 'ok' ? 'ready' : connection === 'error' ? 'offline' : '…'}
+          </Text>
+        </View>
+
+        <View style={styles.card}>
+          <Text style={styles.cardLogo}>cashi</Text>
+          <View style={styles.cardChip} />
+          <View style={styles.cardFooter}>
+            <View>
+              <Text style={styles.cardProduct}>Flash Cashback</Text>
+              <Text style={styles.cardRate}>5% · demo</Text>
+            </View>
+            <Text style={styles.cardNetwork}>VISA</Text>
           </View>
-          <Text style={styles.wordmark}>cashi</Text>
-          <Text style={styles.version}>FLASH / 01</Text>
         </View>
 
         <Text style={styles.headline}>Flash Cashback</Text>
@@ -155,53 +182,43 @@ export default function App() {
           5% on payments ≥ {money(20000)}. Daily cap {money(50000)}. Campaign budget{' '}
           {money(10000000)}.
         </Text>
-
-        <Text style={styles.meta}>
-          API {apiUrl} · {connection === 'ok' ? 'ready' : connection === 'error' ? 'offline' : '…'}
-        </Text>
+        <Text style={styles.meta}>API {apiUrl}</Text>
 
         <View style={styles.users}>
-          {USERS.map((u) => (
-            <Pressable
-              key={u.id}
-              onPress={() => setUserId(u.id)}
-              style={[styles.userChip, userId === u.id && styles.userChipActive]}
-            >
-              <Text style={[styles.userChipText, userId === u.id && styles.userChipTextActive]}>
-                {u.label}
-              </Text>
-            </Pressable>
-          ))}
+          {USERS.map((u) => {
+            const active = userId === u.id;
+            return (
+              <Pressable
+                key={u.id}
+                onPress={() => setUserId(u.id)}
+                style={[styles.userChip, active && styles.userChipActive]}
+              >
+                <Text style={[styles.userChipText, active && styles.userChipTextActive]}>
+                  {u.label}
+                </Text>
+              </Pressable>
+            );
+          })}
           <Pressable onPress={() => refresh()} style={styles.refreshBtn}>
             <Text style={styles.refreshText}>Refresh</Text>
           </Pressable>
         </View>
 
         {campaign ? (
-          <View style={styles.campaign}>
+          <View style={styles.block}>
             <Text style={styles.sectionLabel}>Campaign</Text>
             <Text style={styles.campaignStatus}>
               {campaign.status === 'active' ? 'Active' : 'Exhausted'} · left{' '}
               {money(campaign.budgetLeftIdr)}
             </Text>
             <View style={styles.barTrack}>
-              <View
-                style={[
-                  styles.barFill,
-                  {
-                    width: `${Math.min(
-                      100,
-                      (campaign.budgetSpentIdr / Math.max(campaign.budgetTotalIdr, 1)) * 100,
-                    )}%`,
-                  },
-                ]}
-              />
+              <View style={[styles.barFill, { width: `${budgetPct}%` }]} />
             </View>
           </View>
         ) : null}
 
         {summary ? (
-          <View style={styles.balanceBlock}>
+          <View style={styles.block}>
             <Text style={styles.sectionLabel}>Your cashback</Text>
             <Text style={styles.balance}>{money(summary.availableIdr)}</Text>
             <Text style={styles.balanceMeta}>
@@ -211,7 +228,7 @@ export default function App() {
           </View>
         ) : null}
 
-        <View style={styles.panel}>
+        <View style={styles.block}>
           <Text style={styles.sectionLabel}>Make a payment</Text>
           <TextInput
             value={payAmount}
@@ -219,6 +236,7 @@ export default function App() {
             keyboardType="number-pad"
             style={styles.input}
             placeholder="Amount IDR"
+            placeholderTextColor={colors.muted}
           />
           <Pressable onPress={onPay} style={styles.primaryBtn} disabled={loading}>
             <Text style={styles.primaryBtnText}>Pay</Text>
@@ -230,7 +248,7 @@ export default function App() {
           ) : null}
         </View>
 
-        <View style={styles.panel}>
+        <View style={styles.block}>
           <Text style={styles.sectionLabel}>Redeem</Text>
           <TextInput
             value={redeemAmount}
@@ -238,17 +256,18 @@ export default function App() {
             keyboardType="number-pad"
             style={styles.input}
             placeholder="Amount IDR"
+            placeholderTextColor={colors.muted}
           />
           <Pressable onPress={onRedeem} style={styles.secondaryBtn} disabled={loading}>
             <Text style={styles.secondaryBtnText}>Redeem to payout</Text>
           </Pressable>
         </View>
 
-        {loading ? <ActivityIndicator style={{ marginTop: 12 }} /> : null}
+        {loading ? <ActivityIndicator style={{ marginTop: 12 }} color={colors.orange} /> : null}
         {message ? <Text style={styles.message}>{message}</Text> : null}
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
-        <View style={styles.panel}>
+        <View style={styles.block}>
           <Text style={styles.sectionLabel}>Ledger</Text>
           {ledger.length === 0 ? (
             <Text style={styles.hint}>No entries yet.</Text>
@@ -269,103 +288,138 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#F7F3EE' },
-  scrollContent: { padding: 20, paddingBottom: 48 },
-  topLine: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 20 },
-  mark: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    backgroundColor: '#0F3D2E',
+  safeArea: { flex: 1, backgroundColor: colors.white },
+  scrollContent: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 48 },
+  nav: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
   },
-  markText: { color: '#F7F3EE', fontWeight: '700', fontSize: 16 },
-  wordmark: {
+  navWordmark: {
     fontSize: 22,
-    fontWeight: '700',
-    color: '#0F3D2E',
-    letterSpacing: -0.5,
-    flex: 1,
+    fontWeight: '800',
+    color: colors.black,
+    letterSpacing: -0.8,
+    textTransform: 'lowercase',
   },
-  version: { fontSize: 11, color: '#6B7280', letterSpacing: 1 },
+  navMeta: { fontSize: 12, color: colors.muted, fontWeight: '600' },
+  card: {
+    backgroundColor: colors.orange,
+    borderRadius: 18,
+    paddingHorizontal: 22,
+    paddingTop: 22,
+    paddingBottom: 18,
+    aspectRatio: 1.586,
+    maxHeight: 210,
+    justifyContent: 'space-between',
+    marginBottom: 24,
+    shadowColor: colors.orangeDeep,
+    shadowOpacity: 0.28,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 6,
+  },
+  cardLogo: {
+    color: colors.white,
+    fontSize: 26,
+    fontWeight: '800',
+    letterSpacing: -0.6,
+  },
+  cardChip: {
+    width: 42,
+    height: 32,
+    borderRadius: 6,
+    backgroundColor: 'rgba(255,255,255,0.35)',
+    marginTop: 8,
+  },
+  cardFooter: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+  },
+  cardProduct: { color: colors.white, fontSize: 15, fontWeight: '700' },
+  cardRate: { color: 'rgba(255,255,255,0.85)', fontSize: 12, marginTop: 2 },
+  cardNetwork: {
+    color: colors.white,
+    fontSize: 18,
+    fontWeight: '800',
+    letterSpacing: 2,
+  },
   headline: {
-    fontSize: 34,
-    fontWeight: '700',
-    color: '#122017',
+    fontSize: 32,
+    fontWeight: '800',
+    color: colors.black,
     letterSpacing: -1,
     marginBottom: 8,
   },
-  subhead: { fontSize: 15, lineHeight: 22, color: '#3F4A43', marginBottom: 8 },
-  meta: { fontSize: 12, color: '#6B7280', marginBottom: 16 },
-  users: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 18, flexWrap: 'wrap' },
+  subhead: { fontSize: 15, lineHeight: 22, color: colors.black, marginBottom: 6, opacity: 0.85 },
+  meta: { fontSize: 12, color: colors.muted, marginBottom: 16 },
+  users: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 20, flexWrap: 'wrap' },
   userChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 9,
     borderRadius: 999,
-    backgroundColor: '#E8E2D9',
+    backgroundColor: colors.white,
+    borderWidth: 1.5,
+    borderColor: colors.black,
   },
-  userChipActive: { backgroundColor: '#0F3D2E' },
-  userChipText: { color: '#122017', fontWeight: '600' },
-  userChipTextActive: { color: '#F7F3EE' },
-  refreshBtn: { marginLeft: 'auto', padding: 8 },
-  refreshText: { color: '#0F3D2E', fontWeight: '600' },
-  campaign: { marginBottom: 18 },
+  userChipActive: { backgroundColor: colors.black },
+  userChipText: { color: colors.black, fontWeight: '700' },
+  userChipTextActive: { color: colors.white },
+  refreshBtn: { marginLeft: 'auto', paddingVertical: 8, paddingHorizontal: 4 },
+  refreshText: { color: colors.orange, fontWeight: '700' },
+  block: { marginBottom: 22 },
   sectionLabel: {
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 1,
-    color: '#6B7280',
+    color: colors.muted,
     textTransform: 'uppercase',
     marginBottom: 6,
   },
-  campaignStatus: { fontSize: 16, fontWeight: '600', color: '#122017', marginBottom: 8 },
-  barTrack: { height: 8, backgroundColor: '#E0D8CC', borderRadius: 4, overflow: 'hidden' },
-  barFill: { height: 8, backgroundColor: '#C45C26' },
-  balanceBlock: { marginBottom: 20 },
-  balance: { fontSize: 40, fontWeight: '700', color: '#0F3D2E', letterSpacing: -1 },
-  balanceMeta: { fontSize: 13, color: '#3F4A43', marginTop: 4 },
-  panel: {
-    marginBottom: 16,
-    paddingTop: 4,
-  },
+  campaignStatus: { fontSize: 16, fontWeight: '700', color: colors.black, marginBottom: 8 },
+  barTrack: { height: 8, backgroundColor: colors.track, borderRadius: 4, overflow: 'hidden' },
+  barFill: { height: 8, backgroundColor: colors.orange },
+  balance: { fontSize: 40, fontWeight: '800', color: colors.black, letterSpacing: -1 },
+  balanceMeta: { fontSize: 13, color: colors.muted, marginTop: 4 },
   input: {
-    backgroundColor: '#FFF',
-    borderWidth: 1,
-    borderColor: '#D9D1C5',
-    borderRadius: 12,
+    backgroundColor: colors.white,
+    borderWidth: 1.5,
+    borderColor: colors.line,
+    borderRadius: 14,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 18,
     marginBottom: 10,
-    color: '#122017',
+    color: colors.black,
   },
   primaryBtn: {
-    backgroundColor: '#0F3D2E',
-    borderRadius: 12,
-    paddingVertical: 14,
+    backgroundColor: colors.orange,
+    borderRadius: 999,
+    paddingVertical: 15,
     alignItems: 'center',
   },
-  primaryBtnText: { color: '#F7F3EE', fontWeight: '700', fontSize: 16 },
+  primaryBtnText: { color: colors.white, fontWeight: '800', fontSize: 16 },
   secondaryBtn: {
-    backgroundColor: '#FFF',
+    backgroundColor: colors.white,
     borderWidth: 1.5,
-    borderColor: '#0F3D2E',
-    borderRadius: 12,
+    borderColor: colors.black,
+    borderRadius: 999,
     paddingVertical: 14,
     alignItems: 'center',
   },
-  secondaryBtnText: { color: '#0F3D2E', fontWeight: '700', fontSize: 16 },
-  hint: { marginTop: 8, color: '#6B7280', fontSize: 13 },
-  message: { marginTop: 8, color: '#0F3D2E', fontWeight: '600' },
-  error: { marginTop: 8, color: '#B42318', fontWeight: '600' },
+  secondaryBtnText: { color: colors.black, fontWeight: '800', fontSize: 16 },
+  hint: { marginTop: 8, color: colors.muted, fontSize: 13 },
+  message: { marginTop: 8, color: colors.black, fontWeight: '700' },
+  error: { marginTop: 8, color: colors.danger, fontWeight: '700' },
   ledgerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 10,
+    paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#D9D1C5',
+    borderBottomColor: colors.line,
   },
-  ledgerType: { color: '#3F4A43', fontWeight: '500' },
-  ledgerAmount: { color: '#122017', fontWeight: '700' },
+  ledgerType: { color: colors.muted, fontWeight: '600' },
+  ledgerAmount: { color: colors.black, fontWeight: '800' },
 });

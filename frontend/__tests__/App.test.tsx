@@ -48,10 +48,11 @@ describe('Flash Cashback app', () => {
   });
 
   it('loads campaign and cashback balance', async () => {
-    const { getByText } = render(<App />);
+    const { getByText, getAllByText } = render(<App />);
     await waitFor(() => {
-      expect(getByText('Flash Cashback')).toBeTruthy();
+      expect(getAllByText('Flash Cashback').length).toBeGreaterThan(0);
       expect(getByText(/Active/)).toBeTruthy();
+      expect(getAllByText('cashi').length).toBeGreaterThan(0);
     });
   });
 });
