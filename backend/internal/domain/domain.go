@@ -6,12 +6,13 @@ import (
 )
 
 const (
-	CampaignIDFlash = "flash_v1"
-	RateBPS         = 500 // 5%
-	MinPaymentIDR   = int64(20_000)
-	DailyCapIDR     = int64(50_000)
-	BudgetTotalIDR  = int64(10_000_000)
-	CampaignTZ      = "Asia/Jakarta"
+	CampaignIDFlash    = "flash_v1"
+	RateBPS            = 500    // 5% expressed in basis points
+	BasisPointsPerUnit = 10_000 // 100% = 10_000 bps
+	MinPaymentIDR      = int64(20_000)
+	DailyCapIDR        = int64(50_000)
+	BudgetTotalIDR     = int64(10_000_000)
+	CampaignTZ         = "Asia/Jakarta"
 )
 
 var (
@@ -65,15 +66,15 @@ type CashbackSummary struct {
 }
 
 type PaymentResult struct {
-	PaymentID     string      `json:"paymentId"`
-	UserID        string      `json:"userId"`
-	AmountIDR     int64       `json:"amountIdr"`
-	CashbackIDR   int64       `json:"cashbackIdr"`
-	AwardReason   AwardReason `json:"awardReason"`
-	AvailableIDR  int64       `json:"availableIdr"`
-	EarnedTodayIDR int64      `json:"earnedTodayIdr"`
-	BudgetLeftIDR int64       `json:"budgetLeftIdr"`
-	IdempotentReplay bool     `json:"idempotentReplay"`
+	PaymentID        string      `json:"paymentId"`
+	UserID           string      `json:"userId"`
+	AmountIDR        int64       `json:"amountIdr"`
+	CashbackIDR      int64       `json:"cashbackIdr"`
+	AwardReason      AwardReason `json:"awardReason"`
+	AvailableIDR     int64       `json:"availableIdr"`
+	EarnedTodayIDR   int64       `json:"earnedTodayIdr"`
+	BudgetLeftIDR    int64       `json:"budgetLeftIdr"`
+	IdempotentReplay bool        `json:"idempotentReplay"`
 }
 
 type RedeemResult struct {
@@ -99,7 +100,7 @@ func CashbackForPayment(amountIDR int64) int64 {
 	if amountIDR < MinPaymentIDR {
 		return 0
 	}
-	return amountIDR * RateBPS / 10_000
+	return amountIDR * RateBPS / BasisPointsPerUnit
 }
 
 // AwardInput is the pure-function view of campaign + daily state at earn time.
@@ -126,7 +127,7 @@ func ComputeAward(in AwardInput) AwardDecision {
 	raw := int64(0)
 	reason := ReasonBelowMinimum
 	if in.AmountIDR >= in.MinPaymentIDR {
-		raw = in.AmountIDR * int64(in.RateBPS) / 10_000
+		raw = in.AmountIDR * int64(in.RateBPS) / BasisPointsPerUnit
 		reason = ReasonAwarded
 	}
 
