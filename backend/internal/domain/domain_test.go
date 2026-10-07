@@ -197,21 +197,3 @@ func TestComputeAward(t *testing.T) {
 		})
 	}
 }
-
-func TestClampAndMinInt64(t *testing.T) {
-	if got := Clamp(5, 0, 10); got != 5 {
-		t.Fatalf("Clamp mid=%d", got)
-	}
-	if got := Clamp(-1, 0, 10); got != 0 {
-		t.Fatalf("Clamp low=%d", got)
-	}
-	if got := Clamp(99, 0, 10); got != 10 {
-		t.Fatalf("Clamp high=%d", got)
-	}
-	if got := MinInt64(3, 7); got != 3 {
-		t.Fatalf("MinInt64=%d", got)
-	}
-	if got := MinInt64(9, 2); got != 2 {
-		t.Fatalf("MinInt64=%d", got)
-	}
-}

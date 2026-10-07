@@ -165,20 +165,3 @@ func ComputeAward(in AwardInput) AwardDecision {
 	}
 	return AwardDecision{CashbackIDR: award, Reason: reason}
 }
-
-func Clamp(n, min, max int64) int64 {
-	if n < min {
-		return min
-	}
-	if n > max {
-		return max
-	}
-	return n
-}
-
-func MinInt64(a, b int64) int64 {
-	if a < b {
-		return a
-	}
-	return b
-}
