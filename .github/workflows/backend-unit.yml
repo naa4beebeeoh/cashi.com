@@ -1,0 +1,115 @@
+name: Backend unit tests
+
+# Unit suite (no Docker). Integration tests stay opt-in via RUN_INTEGRATION=1.
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+defaults:
+  run:
+    working-directory: backend
+
+jobs:
+  unit:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+
+      - name: Run unit tests with coverage
+        id: test
+        run: |
+          mkdir -p reports
+          # gotestsum: JUnit + JSON for artifacts; Go native -coverprofile for HTML coverage.
+          # Integration tests in cashback skip automatically without RUN_INTEGRATION=1.
+          go run gotest.tools/gotestsum@v1.12.3 \
+            --junitfile reports/junit.xml \
+            --jsonfile reports/test.json \
+            --format standard-verbose \
+            -- -count=1 -covermode=atomic -coverprofile=reports/coverage.out \
+            ./internal/domain/... \
+            ./internal/config/... \
+            ./internal/httpapi/... \
+            ./internal/cashback/...
+
+      - name: Generate coverage HTML
+        if: always()
+        run: |
+          if [[ -f reports/coverage.out ]]; then
+            go tool cover -html=reports/coverage.out -o reports/coverage.html
+            go tool cover -func=reports/coverage.out | tee reports/coverage.txt
+          fi
+
+      - name: Write job summary
+        if: always()
+        run: |
+          TOTAL="n/a"
+          if [[ -f reports/coverage.out ]]; then
+            TOTAL=$(go tool cover -func=reports/coverage.out | awk '/total:/ {print $3}')
+          fi
+
+          {
+            echo "## Backend unit tests"
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Branch | \`${{ github.ref_name }}\` |"
+            echo "| Commit | \`${{ github.sha }}\` |"
+            echo "| Result | ${{ steps.test.outcome }} |"
+            echo "| Statement coverage | **${TOTAL}** |"
+            echo ""
+            echo "### Testing strategy"
+            echo ""
+            echo "Pyramid for a money feature: pure policy first, HTTP contracts with stubs, infra races only in integration."
+            echo ""
+            echo "| Layer | What runs here |"
+            echo "|-------|----------------|"
+            echo "| Domain | \`CashbackForPayment\`, \`ComputeAward\` (min / 5% floor / daily & budget clamps) |"
+            echo "| Config | staging/production fail-closed; dotenv does not override process env |"
+            echo "| HTTP | httptest + stubs: status mapping, CORS, \`/readyz\` |"
+            echo "| Service | Pay/Redeem validation; Asia/Jakarta day boundary |"
+            echo "| Integration | **Not in this job** — \`RUN_INTEGRATION=1\` + Docker Compose |"
+            echo ""
+            if [[ -f reports/coverage.txt ]]; then
+              echo "### Coverage by function"
+              echo ""
+              echo '```'
+              cat reports/coverage.txt
+              echo '```'
+              echo ""
+            fi
+            echo "### Artifacts attached to this run"
+            echo ""
+            echo "- \`coverage.html\` — **Go native HTML coverage** (\`go tool cover -html\`)"
+            echo "- \`junit.xml\` — JUnit report (QA / CI tooling)"
+            echo "- \`test.json\` — \`go test -json\` stream via gotestsum"
+            echo "- \`coverage.out\` / \`coverage.txt\` — raw coverage data"
+            echo ""
+            echo "> Go does not ship an HTML *test* report like Jest; coverage HTML + JUnit is the usual pair."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: backend-unit-test-reports-${{ github.run_number }}
+          path: |
+            backend/reports/coverage.html
+            backend/reports/coverage.out
+            backend/reports/coverage.txt
+            backend/reports/junit.xml
+            backend/reports/test.json
+          if-no-files-found: warn
+          retention-days: 30

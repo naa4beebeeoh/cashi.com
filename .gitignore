@@ -2,6 +2,7 @@ node_modules/
 .expo/
 dist/
 coverage/
+backend/reports/
 .env
 .env.*
 !.env.example
@@ -10,3 +11,4 @@ coverage/
 *.out
 
 .DS_Store
+DECISIONS.md

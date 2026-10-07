@@ -1,42 +1,57 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import React from 'react';
+import { render, waitFor } from '@testing-library/react-native';
+
 import App from '../App';
+import { api } from '../api';
 
-const fetchMock = jest.fn();
-
-beforeEach(() => {
-  fetchMock.mockReset();
-  global.fetch = fetchMock;
+jest.mock('../api', () => {
+  const actual = jest.requireActual('../api');
+  return {
+    ...actual,
+    api: {
+      health: jest.fn(),
+      ready: jest.fn(),
+      campaign: jest.fn(),
+      cashback: jest.fn(),
+      ledger: jest.fn(),
+      pay: jest.fn(),
+      redeem: jest.fn(),
+    },
+  };
 });
 
-describe('App', () => {
-  it('renders the main cashi heading and check connection action', () => {
-    render(<App />);
+const mockedApi = api as jest.Mocked<typeof api>;
 
-    expect(screen.getByText('cashi')).toBeTruthy();
-    expect(screen.getByText('Check connection')).toBeTruthy();
+describe('Flash Cashback app', () => {
+  beforeEach(() => {
+    mockedApi.campaign.mockResolvedValue({
+      id: 'flash_v1',
+      name: 'Flash Cashback',
+      rateBps: 500,
+      minPaymentIdr: 20000,
+      dailyCapIdr: 50000,
+      budgetTotalIdr: 10000000,
+      budgetSpentIdr: 0,
+      budgetLeftIdr: 10000000,
+      status: 'active',
+      timezone: 'Asia/Jakarta',
+    });
+    mockedApi.cashback.mockResolvedValue({
+      userId: 'user_a',
+      availableIdr: 0,
+      redeemedIdr: 0,
+      earnedTodayIdr: 0,
+      dailyCapIdr: 50000,
+      dailyLeftIdr: 50000,
+    });
+    mockedApi.ledger.mockResolvedValue([]);
   });
 
-  it('loads the card balance and recent transactions', async () => {
-    fetchMock
-      .mockResolvedValueOnce({ ok: true, json: async () => [{ id: 'primary' }] })
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ id: 'primary', lastFour: '4821', currentBalance: 1248.6, availableCredit: 3751.4, paymentDueDate: '2026-10-18' }) })
-      .mockResolvedValueOnce({ ok: true, json: async () => [{ id: 'txn-1', merchant: 'Metro Coffee', category: 'Food & drink', amount: 5.8, date: '2026-09-28' }] });
-
-    render(<App />);
-    fireEvent.press(screen.getByText('Load card overview'));
-
-    await waitFor(() => expect(screen.getByText('Metro Coffee')).toBeTruthy());
-    expect(screen.getByText('$1,248.60')).toBeTruthy();
-  });
-
-  it('switches to trading and loads portfolio positions', async () => {
-    fetchMock.mockResolvedValueOnce({ ok: true, json: async () => ({ name: 'Long-term portfolio', marketValue: 24860.32, dailyChange: 184.76, dailyChangePercent: 0.75, positions: [{ symbol: 'VTI', name: 'Total Stock Market ETF', shares: 42, marketValue: 11382, dailyChange: 92.4 }] }) });
-
-    render(<App />);
-    fireEvent.press(screen.getByText('Trading'));
-    fireEvent.press(screen.getByText('Load portfolio'));
-
-    await waitFor(() => expect(screen.getByText('VTI')).toBeTruthy());
-    expect(screen.getByText('$24,860.32')).toBeTruthy();
+  it('loads campaign and cashback balance', async () => {
+    const { getByText } = render(<App />);
+    await waitFor(() => {
+      expect(getByText('Flash Cashback')).toBeTruthy();
+      expect(getByText(/Active/)).toBeTruthy();
+    });
   });
 });
