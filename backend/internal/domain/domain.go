@@ -26,25 +26,33 @@ var (
 type AwardReason string
 
 const (
-	ReasonAwarded      AwardReason = "awarded"
-	ReasonBelowMinimum AwardReason = "below_minimum"
-	ReasonDailyCap     AwardReason = "daily_cap_reached"
-	ReasonBudgetGone   AwardReason = "campaign_budget_exhausted"
-	ReasonPartialDaily AwardReason = "partial_daily_cap"
+	ReasonAwarded       AwardReason = "awarded"
+	ReasonBelowMinimum  AwardReason = "below_minimum"
+	ReasonDailyCap      AwardReason = "daily_cap_reached"
+	ReasonBudgetGone    AwardReason = "campaign_budget_exhausted"
+	ReasonPartialDaily  AwardReason = "partial_daily_cap"
 	ReasonPartialBudget AwardReason = "partial_budget"
 )
 
+// CampaignStatus is the campaign row lifecycle (DB CHECK: active | exhausted).
+type CampaignStatus string
+
+const (
+	CampaignStatusActive    CampaignStatus = "active"
+	CampaignStatusExhausted CampaignStatus = "exhausted"
+)
+
 type Campaign struct {
-	ID             string `json:"id"`
-	Name           string `json:"name"`
-	RateBPS        int    `json:"rateBps"`
-	MinPaymentIDR  int64  `json:"minPaymentIdr"`
-	DailyCapIDR    int64  `json:"dailyCapIdr"`
-	BudgetTotalIDR int64  `json:"budgetTotalIdr"`
-	BudgetSpentIDR int64  `json:"budgetSpentIdr"`
-	BudgetLeftIDR  int64  `json:"budgetLeftIdr"`
-	Status         string `json:"status"`
-	Timezone       string `json:"timezone"`
+	ID             string         `json:"id"`
+	Name           string         `json:"name"`
+	RateBPS        int            `json:"rateBps"`
+	MinPaymentIDR  int64          `json:"minPaymentIdr"`
+	DailyCapIDR    int64          `json:"dailyCapIdr"`
+	BudgetTotalIDR int64          `json:"budgetTotalIdr"`
+	BudgetSpentIDR int64          `json:"budgetSpentIdr"`
+	BudgetLeftIDR  int64          `json:"budgetLeftIdr"`
+	Status         CampaignStatus `json:"status"`
+	Timezone       string         `json:"timezone"`
 }
 
 type CashbackSummary struct {
@@ -103,7 +111,7 @@ type AwardInput struct {
 	EarnedTodayIDR int64
 	BudgetTotalIDR int64
 	BudgetSpentIDR int64
-	CampaignStatus string
+	CampaignStatus CampaignStatus
 }
 
 // AwardDecision is the cashback amount and reason after caps.
@@ -130,7 +138,7 @@ func ComputeAward(in AwardInput) AwardDecision {
 
 	award := raw
 	switch {
-	case award > 0 && (in.CampaignStatus == "exhausted" || budgetLeft <= 0):
+	case award > 0 && (in.CampaignStatus == CampaignStatusExhausted || budgetLeft <= 0):
 		return AwardDecision{CashbackIDR: 0, Reason: ReasonBudgetGone}
 	case award > 0 && dailyLeft <= 0:
 		return AwardDecision{CashbackIDR: 0, Reason: ReasonDailyCap}
@@ -143,6 +151,9 @@ func ComputeAward(in AwardInput) AwardDecision {
 		}
 		if award > budgetLeft {
 			award = budgetLeft
+			limitedByBudget = true
+		} else if limitedByDaily && award == budgetLeft {
+			// Both caps bind equally — budget reason wins (stable client messaging).
 			limitedByBudget = true
 		}
 		if limitedByBudget {

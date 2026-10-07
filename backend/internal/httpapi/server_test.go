@@ -19,7 +19,7 @@ type stubService struct {
 }
 
 func (s *stubService) GetCampaign(context.Context) (domain.Campaign, error) {
-	return domain.Campaign{ID: domain.CampaignIDFlash, Status: "active"}, nil
+	return domain.Campaign{ID: domain.CampaignIDFlash, Status: domain.CampaignStatusActive}, nil
 }
 func (s *stubService) GetSummary(ctx context.Context, userID string) (domain.CashbackSummary, error) {
 	if s.sumFn != nil {

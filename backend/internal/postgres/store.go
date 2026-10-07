@@ -160,7 +160,7 @@ func (s *Store) Earn(ctx context.Context, p EarnParams) (domain.PaymentResult, e
 	var campID string
 	var rateBPS int
 	var minPayment, dailyCap, budgetTotal, budgetSpent int64
-	var status string
+	var status domain.CampaignStatus
 	err = tx.QueryRow(ctx, `
 		SELECT id, rate_bps, min_payment_idr, daily_cap_idr,
 		       budget_total_idr, budget_spent_idr, status
@@ -255,11 +255,11 @@ func (s *Store) Earn(ctx context.Context, p EarnParams) (domain.PaymentResult, e
 			UPDATE campaigns
 			SET budget_spent_idr = budget_spent_idr + $2,
 			    status = CASE
-			      WHEN budget_spent_idr + $2 >= budget_total_idr THEN 'exhausted'
+			      WHEN budget_spent_idr + $2 >= budget_total_idr THEN $3
 			      ELSE status
 			    END
 			WHERE id = $1
-		`, campID, award)
+		`, campID, award, domain.CampaignStatusExhausted)
 		if err != nil {
 			return domain.PaymentResult{}, err
 		}

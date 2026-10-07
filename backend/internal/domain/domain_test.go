@@ -29,102 +29,168 @@ func TestCashbackForPayment(t *testing.T) {
 }
 
 func TestComputeAward(t *testing.T) {
-	base := AwardInput{
-		MinPaymentIDR:  MinPaymentIDR,
-		RateBPS:        RateBPS,
-		DailyCapIDR:    DailyCapIDR,
-		BudgetTotalIDR: BudgetTotalIDR,
-		CampaignStatus: "active",
-	}
-
+	// Every case states AmountIDR / EarnedTodayIDR / BudgetSpentIDR explicitly (no hidden zeros).
 	tests := []struct {
-		name string
-		mod  func(*AwardInput)
-		want AwardDecision
+		name           string
+		amountIDR      int64
+		earnedTodayIDR int64
+		budgetSpentIDR int64
+		status         CampaignStatus // empty → active
+		want           AwardDecision
 	}{
 		{
-			name: "below minimum",
-			mod:  func(in *AwardInput) { in.AmountIDR = 19_999 },
-			want: AwardDecision{0, ReasonBelowMinimum},
+			name:           "below minimum",
+			amountIDR:      19_999,
+			earnedTodayIDR: 0,
+			budgetSpentIDR: 0,
+			want:           AwardDecision{0, ReasonBelowMinimum},
 		},
 		{
-			name: "full award",
-			mod:  func(in *AwardInput) { in.AmountIDR = 100_000 },
-			want: AwardDecision{5_000, ReasonAwarded},
+			name:           "full award",
+			amountIDR:      100_000, // raw 5000
+			earnedTodayIDR: 0,
+			budgetSpentIDR: 0,
+			want:           AwardDecision{5_000, ReasonAwarded},
 		},
 		{
-			name: "daily cap already reached",
-			mod: func(in *AwardInput) {
-				in.AmountIDR = 100_000
-				in.EarnedTodayIDR = DailyCapIDR
-			},
-			want: AwardDecision{0, ReasonDailyCap},
+			name:           "daily cap already reached",
+			amountIDR:      100_000,
+			earnedTodayIDR: DailyCapIDR,
+			budgetSpentIDR: 0,
+			want:           AwardDecision{0, ReasonDailyCap},
 		},
 		{
-			name: "partial daily cap",
-			mod: func(in *AwardInput) {
-				in.AmountIDR = 100_000 // raw 5000
-				in.EarnedTodayIDR = 48_000 // left 2000
-			},
-			want: AwardDecision{2_000, ReasonPartialDaily},
+			name:           "partial daily cap",
+			amountIDR:      100_000,              // raw 5000
+			earnedTodayIDR: DailyCapIDR - 2_000, // daily left 2000
+			budgetSpentIDR: 0,
+			want:           AwardDecision{2_000, ReasonPartialDaily},
 		},
 		{
-			name: "budget exhausted by spent",
-			mod: func(in *AwardInput) {
-				in.AmountIDR = 100_000
-				in.BudgetSpentIDR = BudgetTotalIDR
-			},
-			want: AwardDecision{0, ReasonBudgetGone},
+			name:           "budget exhausted by spent",
+			amountIDR:      100_000,
+			earnedTodayIDR: 0,
+			budgetSpentIDR: BudgetTotalIDR,
+			want:           AwardDecision{0, ReasonBudgetGone},
 		},
 		{
-			name: "campaign status exhausted",
-			mod: func(in *AwardInput) {
-				in.AmountIDR = 100_000
-				in.CampaignStatus = "exhausted"
-			},
-			want: AwardDecision{0, ReasonBudgetGone},
+			name:           "campaign status exhausted",
+			amountIDR:      100_000,
+			earnedTodayIDR: 0,
+			budgetSpentIDR: 0,
+			status:         CampaignStatusExhausted,
+			want:           AwardDecision{0, ReasonBudgetGone},
 		},
 		{
-			name: "partial budget",
-			mod: func(in *AwardInput) {
-				in.AmountIDR = 100_000 // raw 5000
-				in.BudgetSpentIDR = BudgetTotalIDR - 1_500
-			},
-			want: AwardDecision{1_500, ReasonPartialBudget},
+			name:           "budget clamp wins when tighter than daily",
+			amountIDR:      200_000,                 // raw 10000
+			earnedTodayIDR: DailyCapIDR - 5_000,    // daily left 5000
+			budgetSpentIDR: BudgetTotalIDR - 3_000, // budget left 3000
+			want:           AwardDecision{3_000, ReasonPartialBudget},
 		},
 		{
-			name: "budget clamp wins when tighter than daily",
-			mod: func(in *AwardInput) {
-				in.AmountIDR = 200_000 // raw 10000
-				in.EarnedTodayIDR = 45_000 // daily left 5000
-				in.BudgetSpentIDR = BudgetTotalIDR - 3_000
-			},
-			want: AwardDecision{3_000, ReasonPartialBudget},
+			name:           "daily clamp when tighter than budget",
+			amountIDR:      200_000,              // raw 10000
+			earnedTodayIDR: DailyCapIDR - 3_000, // daily left 3000
+			budgetSpentIDR: 0,                   // budget plentiful
+			want:           AwardDecision{3_000, ReasonPartialDaily},
 		},
 		{
-			name: "daily clamp when tighter than budget",
-			mod: func(in *AwardInput) {
-				in.AmountIDR = 200_000 // raw 10000
-				in.EarnedTodayIDR = 47_000 // daily left 3000
-				in.BudgetSpentIDR = 0
-			},
-			want: AwardDecision{3_000, ReasonPartialDaily},
+			name:           "over-earned daily row clamps left to zero",
+			amountIDR:      100_000,
+			earnedTodayIDR: DailyCapIDR + 5_000, // corrupt / over-cap row
+			budgetSpentIDR: 0,
+			want:           AwardDecision{0, ReasonDailyCap},
 		},
 		{
-			name: "over-earned daily row clamps left to zero",
-			mod: func(in *AwardInput) {
-				in.AmountIDR = 100_000
-				in.EarnedTodayIDR = DailyCapIDR + 5_000
-			},
-			want: AwardDecision{0, ReasonDailyCap},
+			name:           "below minimum even when campaign exhausted",
+			amountIDR:      19_999,
+			earnedTodayIDR: 0,
+			budgetSpentIDR: BudgetTotalIDR,
+			status:         CampaignStatusExhausted,
+			want:           AwardDecision{0, ReasonBelowMinimum},
+		},
+		{
+			name:           "below minimum even when daily already full",
+			amountIDR:      19_999,
+			earnedTodayIDR: DailyCapIDR,
+			budgetSpentIDR: 0,
+			want:           AwardDecision{0, ReasonBelowMinimum},
+		},
+		{
+			name:           "whale payment cannot exceed remaining campaign budget",
+			amountIDR:      50_000_000, // raw 2_500_000
+			earnedTodayIDR: 0,
+			budgetSpentIDR: BudgetTotalIDR - 7_000, // budget left 7000
+			want:           AwardDecision{7_000, ReasonPartialBudget},
+		},
+		{
+			name:           "whale payment cannot exceed remaining daily cap",
+			amountIDR:      50_000_000,           // raw 2_500_000
+			earnedTodayIDR: DailyCapIDR - 4_000, // daily left 4000
+			budgetSpentIDR: 0,
+			want:           AwardDecision{4_000, ReasonPartialDaily},
+		},
+		{
+			name:           "exact daily remainder is awarded not partial",
+			amountIDR:      100_000, // raw 5000
+			earnedTodayIDR: DailyCapIDR - 5_000,
+			budgetSpentIDR: 0,
+			want:           AwardDecision{5_000, ReasonAwarded},
+		},
+		{
+			name:           "exact budget remainder is awarded not partial",
+			amountIDR:      100_000, // raw 5000
+			earnedTodayIDR: 0,
+			budgetSpentIDR: BudgetTotalIDR - 5_000,
+			want:           AwardDecision{5_000, ReasonAwarded},
+		},
+		{
+			name:           "equal daily and budget leftover prefers partial_budget reason",
+			amountIDR:      200_000, // raw 10000
+			earnedTodayIDR: DailyCapIDR - 3_000,
+			budgetSpentIDR: BudgetTotalIDR - 3_000,
+			want:           AwardDecision{3_000, ReasonPartialBudget},
+		},
+		{
+			name:           "budget spent past total yields zero",
+			amountIDR:      100_000,
+			earnedTodayIDR: 0,
+			budgetSpentIDR: BudgetTotalIDR + 1,
+			want:           AwardDecision{0, ReasonBudgetGone},
+		},
+		{
+			name:           "zero amount",
+			amountIDR:      0,
+			earnedTodayIDR: 0,
+			budgetSpentIDR: 0,
+			want:           AwardDecision{0, ReasonBelowMinimum},
+		},
+		{
+			name:           "negative amount",
+			amountIDR:      -100_000,
+			earnedTodayIDR: 0,
+			budgetSpentIDR: 0,
+			want:           AwardDecision{0, ReasonBelowMinimum},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			in := base
-			tt.mod(&in)
-			got := ComputeAward(in)
+			status := CampaignStatusActive
+			if tt.status != "" {
+				status = tt.status
+			}
+			got := ComputeAward(AwardInput{
+				AmountIDR:      tt.amountIDR,
+				EarnedTodayIDR: tt.earnedTodayIDR,
+				BudgetSpentIDR: tt.budgetSpentIDR,
+				MinPaymentIDR:  MinPaymentIDR,
+				RateBPS:        RateBPS,
+				DailyCapIDR:    DailyCapIDR,
+				BudgetTotalIDR: BudgetTotalIDR,
+				CampaignStatus: status,
+			})
 			if got != tt.want {
 				t.Fatalf("got %+v want %+v", got, tt.want)
 			}
