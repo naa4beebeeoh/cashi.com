@@ -71,6 +71,7 @@ Production-minded MVP: the main screen is a **customer spend/earn flow**; interv
 
 - Use **RNTL** (`@testing-library/react-native`) + `jest-expo`. Prefer assertions on customer copy and Dev-drawer separation over brittle layout snapshots.
 - Mock `../api`; keep Pay/Redeem orchestration confidence on the backend.
+- **Maestro** (device E2E): flows under `.maestro/` ([docs](https://docs.maestro.dev/), [repo](https://github.com/mobile-dev-inc/maestro)). Install with `curl -fsSL "https://get.maestro.mobile.dev" | bash` → `~/.maestro/bin` plus JDK 17 (`brew install openjdk@17`, set `JAVA_HOME` — formula is not on PATH by default). **Do not** `brew install maestro` (unrelated formula). Prefer stable `testID` → Maestro `id:` over brittle copy. Expo Go uses `openLink` + `APP_ID=host.exp.exponent` (not `launchApp` with our package). Standalone package/bundle: `com.cashi.flashcashback`. Run via `./scripts/maestro-test.sh` with Metro `EXPO_URL`.
 
 ## Demo / CI pointers
 

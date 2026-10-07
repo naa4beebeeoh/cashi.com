@@ -174,6 +174,18 @@ cd backend && RUN_INTEGRATION=1 go test ./internal/cashback/... -count=1
 cd frontend && npm test
 ```
 
+### Maestro UI (device / emulator)
+
+[Maestro](https://docs.maestro.dev/) flows live in [`.maestro/`](.maestro/). Install the CLI, start Compose + API + Expo (`npm run android`), then:
+
+```sh
+./scripts/maestro-test.sh
+# or point at Metro’s exp:// URL:
+EXPO_URL='exp://192.168.x.x:8081' ./scripts/maestro-test.sh
+```
+
+See [`.maestro/README.md`](.maestro/README.md) for Expo Go vs standalone `appId` notes.
+
 ## Environments
 
 Profiles live under `env/<name>/` as committed **examples** (no secrets). Activate one locally:

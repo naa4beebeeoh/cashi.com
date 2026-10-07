@@ -1,0 +1,41 @@
+# Happy path on device: Pay default Spotify amount → cashback reward → Redeem.
+# Prerequisites: emulator, Expo Go, Metro, API + Compose; daily cap not exhausted
+# (./scripts/maestro-test.sh runs demo-reset.sh daily when RESET_DAILY=1, default on).
+appId: ${APP_ID}
+name: Pay then redeem
+tags:
+  - smoke
+  - money
+---
+- runFlow: subflows/open_app.yaml
+# Pull fresh daily usage after demo-reset (UI may still show a prior cap).
+- scrollUntilVisible:
+    element:
+      id: "dev-tools"
+    direction: UP
+    timeout: 15000
+- tapOn:
+    id: "dev-tools"
+- tapOn: "Refresh"
+- tapOn: "Close"
+- assertVisible:
+    id: "pay-gift-card"
+- tapOn:
+    id: "pay-gift-card"
+- extendedWaitUntil:
+    visible: ".*cashback reward.*"
+    timeout: 30000
+# Full 5% on default Rp100.000 load (fails if daily cap / budget already drained).
+- assertVisible: "Cashback awarded"
+# Locale formats with "." thousands sep; text selector is regex so escape dots.
+- assertVisible: ".*5\\.000 cashback reward.*"
+- scrollUntilVisible:
+    element:
+      id: "redeem-payout"
+    direction: DOWN
+    timeout: 15000
+- tapOn:
+    id: "redeem-payout"
+- extendedWaitUntil:
+    visible: "Your cashback wallet"
+    timeout: 15000
