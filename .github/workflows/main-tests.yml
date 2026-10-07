@@ -65,15 +65,55 @@ jobs:
           if [[ -f reports/coverage.out ]]; then
             TOTAL=$(go tool cover -func=reports/coverage.out | awk '/total:/ {print $3}')
           fi
+
           {
             echo "## Backend (unit + integration)"
             echo ""
             echo "| | |"
             echo "|---|---|"
+            echo "| Branch | \`${{ github.ref_name }}\` |"
             echo "| Commit | \`${{ github.sha }}\` |"
             echo "| Result | ${{ steps.test.outcome }} |"
             echo "| Statement coverage | **${TOTAL}** |"
             echo "| \`RUN_INTEGRATION\` | \`1\` (Compose Postgres + Redis) |"
+            echo ""
+            echo "### Packages under test"
+            echo ""
+            echo "\`./internal/domain/...\` · \`./internal/config/...\` · \`./internal/httpapi/...\` · \`./internal/cashback/...\`"
+            echo ""
+            echo "### Testing strategy"
+            echo ""
+            echo "Full pyramid on main: pure policy + HTTP contracts + real Postgres/Redis races (integration un-skipped)."
+            echo ""
+            echo "| Layer | What runs here |"
+            echo "|-------|----------------|"
+            echo "| Domain | \`CashbackForPayment\`, \`ComputeAward\` (min / 5% floor / daily & budget clamps) |"
+            echo "| Config | staging/production fail-closed; dotenv does not override process env |"
+            echo "| HTTP | httptest + stubs: status mapping, CORS, \`/readyz\` |"
+            echo "| Service (unit) | Pay/Redeem validation; Asia/Jakarta day boundary |"
+            echo "| Integration | \`TestPayRulesAndIdempotency\`, concurrent idempotent pay, daily-cap clamp, campaign budget overspend |"
+            echo ""
+            echo "### Integration infra"
+            echo ""
+            echo "- Compose services: Postgres 16 + Redis 7 (migrations applied on first boot)"
+            echo "- Env: \`DATABASE_URL\`, \`REDIS_URL\` (demo defaults); cashback integration skips without \`RUN_INTEGRATION=1\`"
+            echo ""
+            if [[ -f reports/coverage.txt ]]; then
+              echo "### Coverage by function"
+              echo ""
+              echo '```'
+              cat reports/coverage.txt
+              echo '```'
+              echo ""
+            fi
+            echo "### Artifacts attached to this run"
+            echo ""
+            echo "- \`coverage.html\` — **Go native HTML coverage** (\`go tool cover -html\`)"
+            echo "- \`junit.xml\` — JUnit report (QA / CI tooling)"
+            echo "- \`test.json\` — \`go test -json\` stream via gotestsum"
+            echo "- \`coverage.out\` / \`coverage.txt\` — raw coverage data"
+            echo ""
+            echo "> Go does not ship an HTML *test* report like Jest; coverage HTML + JUnit is the usual pair."
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload test reports
@@ -112,16 +152,88 @@ jobs:
 
       - name: Run Jest
         id: test
-        run: npm test
+        run: |
+          mkdir -p reports
+          npx jest --watch=false --ci \
+            --json --outputFile=reports/jest.json \
+            2>&1 | tee reports/jest.log
 
       - name: Write job summary
         if: always()
         run: |
+          SUITES="n/a"
+          TESTS="n/a"
+          PASSED="n/a"
+          FAILED="n/a"
+          DURATION="n/a"
+          if [[ -f reports/jest.json ]]; then
+            SUITES=$(node -e "const j=require('./reports/jest.json'); console.log(j.numTotalTestSuites)")
+            TESTS=$(node -e "const j=require('./reports/jest.json'); console.log(j.numTotalTests)")
+            PASSED=$(node -e "const j=require('./reports/jest.json'); console.log(j.numPassedTests)")
+            FAILED=$(node -e "const j=require('./reports/jest.json'); console.log(j.numFailedTests)")
+            DURATION=$(node -e "const j=require('./reports/jest.json'); console.log((j.testResults||[]).reduce((s,r)=>s+(r.endTime-r.startTime),0)/1000+'s')")
+          fi
+
           {
             echo "## Frontend Jest"
             echo ""
             echo "| | |"
             echo "|---|---|"
+            echo "| Branch | \`${{ github.ref_name }}\` |"
             echo "| Commit | \`${{ github.sha }}\` |"
             echo "| Result | ${{ steps.test.outcome }} |"
+            echo "| Suites | ${SUITES} |"
+            echo "| Tests | **${PASSED}** passed / ${FAILED} failed / ${TESTS} total |"
+            echo "| Duration | ${DURATION} |"
+            echo ""
+            echo "### What we assert"
+            echo ""
+            echo "RNTL + \`jest-expo\` against the customer surface (API mocked — Pay/Redeem orchestration stays on the backend)."
+            echo ""
+            echo "| Focus | Details |"
+            echo "|-------|---------|"
+            echo "| Customer copy | Spotify gift card flow; campaign/budget internals stay behind Dev |"
+            echo "| Happy path | Pay → cashback reward → Redeem (mocked \`../api\`) |"
+            echo "| Dev drawer | Interview/ops helpers are not on the main path until Dev opens |"
+            echo ""
+            echo "### Command"
+            echo ""
+            echo '```'
+            echo "npx jest --watch=false --ci"
+            echo '```'
+            echo ""
+            if [[ -f reports/jest.json ]]; then
+              echo "### Suites"
+              echo ""
+              node -e '
+                const j = require("./reports/jest.json");
+                for (const r of j.testResults || []) {
+                  const name = r.name.replace(process.cwd() + "/", "");
+                  const status = r.status === "passed" ? "PASS" : "FAIL";
+                  console.log(`- \`${name}\` — **${status}** (${(r.assertionResults||[]).length} tests)`);
+                  for (const a of r.assertionResults || []) {
+                    const mark = a.status === "passed" ? "✓" : "✗";
+                    console.log(`  - ${mark} ${a.title}`);
+                  }
+                }
+              '
+              echo ""
+            fi
+            echo "### Artifacts"
+            echo ""
+            echo "- \`jest.json\` — Jest JSON results"
+            echo "- \`jest.log\` — full console output"
+            echo ""
+            echo "> Device E2E (Maestro) is local/manual — not part of this workflow."
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload Jest reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: frontend-jest-reports-${{ github.run_number }}
+          path: |
+            frontend/reports/jest.json
+            frontend/reports/jest.log
+          if-no-files-found: warn
+          retention-days: 30
