@@ -306,7 +306,13 @@ export default function App() {
             {`Terms apply. Earn 5% cashback when you spend from ${money(MIN_PAYMENT_IDR)}. Up to ${money(DAILY_CAP_IDR)} cashback per day. Your reward may be less if today's limit or the campaign budget is running low.`}
           </Text>
 
-          <Pressable onPress={onPay} style={styles.primaryBtn} disabled={loading}>
+          <Pressable
+            onPress={onPay}
+            style={styles.primaryBtn}
+            disabled={loading}
+            accessibilityLabel="Pay gift card"
+            accessibilityState={{ disabled: loading }}
+          >
             <Text style={styles.primaryBtnText}>
               Pay {Number.isFinite(amountNum) && amountNum > 0 ? money(amountNum) : '…'}
             </Text>
@@ -358,7 +364,13 @@ export default function App() {
               }
             }}
           />
-          <Pressable onPress={onRedeem} style={styles.secondaryBtn} disabled={loading}>
+          <Pressable
+            onPress={onRedeem}
+            style={styles.secondaryBtn}
+            disabled={loading}
+            accessibilityLabel="Redeem to payout"
+            accessibilityState={{ disabled: loading }}
+          >
             <Text style={styles.secondaryBtnText}>Redeem to payout</Text>
           </Pressable>
         </View>

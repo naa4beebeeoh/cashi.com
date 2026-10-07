@@ -31,6 +31,47 @@ Unit tests exist to **lock business invariants and anti-abuse edges**, not to in
 - Keep diffs focused; no drive-by refactors or unsolicited markdown docs.
 - Do not commit secrets. Env templates live under `env/<demo|staging|production>/`; local `.env` is gitignored.
 
+## Frontend / Expo UI (learned from brand + Android polish)
+
+Production-minded MVP: the main screen is a **customer spend/earn flow**; interview/ops knobs stay behind **Dev**. Match live Cashi brand (`cashi.com` / app stores), not a green admin console.
+
+### Brand colour and layout
+
+- **Palette**: signature orange card `#FF5C00`, white page `#FFFFFF`, black text `#171719`, muted grey for secondary copy. Avoid cream/green “fintech demo” themes unless the human asks.
+- **Hero**: orange payment-card block with white lowercase **cashi** wordmark (chip + Flash Cashback + VISA-style footer). Brand must read as Cashi after removing nav chrome.
+- **Android status bar**: RN `SafeAreaView` alone is not enough — pad top with `StatusBar.currentHeight` on Android so the black wordmark is not clipped.
+- **Card geometry**: use `width` / `maxWidth` + `aspectRatio` (~1.586) and center with a wrapper (`alignItems: 'center'`). Do **not** pair `aspectRatio` with `maxHeight` on Android — height caps break width and look off-center.
+- **CTAs**: orange pill for primary Pay; black outline for secondary Redeem.
+
+### Customer flow vs developer tools
+
+- **Customer surface**: Spotify Gift Card (editable load amount) → “You’ll earn ≈ …” preview → market T&C → Pay → green reward pill → wallet + redeem.
+- **Dev drawer** (not the happy path): switch Ayu/Budi, API ready URL, campaign budget bar, daily usage, ledger. Label it as interview/ops helpers.
+- Merchandise is a **client staging fixture** (catalogue remains out of API scope). Prefer one gift-card SKU unless the human asks for more.
+
+### Integer IDR inputs
+
+- Money fields: **digits only** (`replace(/\D/g, '')`), `keyboardType="number-pad"`, soft **max** (e.g. Rp2.000.000 for gift-card load) to stop fat-finger absurd amounts.
+- Display with `id-ID` currency formatting; never use floats for IDR amounts in UI math (preview uses the same bps floor as domain: `floor(amount * 500 / 10000)` below min → 0).
+
+### Customer-facing wording
+
+- Write for cardholders, not engineers: “Earn 5% cashback when you spend from Rp20.000”, “Up to Rp50.000 cashback per day”, “Terms apply”.
+- Avoid symbols like **≥** / “greater than or equal to”, API jargon, or campaign-budget internals on the main surface (those belong in Dev).
+- Preview copy may say “≈”; note that the server can still clamp for daily cap / campaign budget.
+
+### Software keyboard and focus (Android)
+
+- Set Expo `android.softwareKeyboardLayoutMode` to `"resize"` in `app.json`.
+- Wrap main content in `KeyboardAvoidingView` (iOS `padding`); use `ScrollView` with `keyboardShouldPersistTaps="handled"` and extra **bottom padding** while the keyboard is open (`Keyboard` show/hide listeners).
+- **Scroll-to-end only when Redeem is focused.** Scrolling to end on every focus (including Spotify amount) jumps the viewport to Redeem and can steal focus on Pixel-class devices. Track focused field with a ref; Pay amount sits high enough that it should not force `scrollToEnd`.
+- After keyboard show for Redeem, scroll again once padding updates so the field stays above the IME.
+
+### Frontend tests
+
+- Use **RNTL** (`@testing-library/react-native`) + `jest-expo`. Prefer assertions on customer copy and Dev-drawer separation over brittle layout snapshots.
+- Mock `../api`; keep Pay/Redeem orchestration confidence on the backend.
+
 ## Demo / CI pointers
 
 - Demo: see `README.md` (`./scripts/use-env.sh demo`, Compose, API, Expo web/Android).
