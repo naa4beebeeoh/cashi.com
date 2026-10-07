@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, waitFor } from '@testing-library/react-native';
+import { fireEvent, render, waitFor } from '@testing-library/react-native';
 
 import App from '../App';
 import { api } from '../api';
@@ -47,12 +47,22 @@ describe('Flash Cashback app', () => {
     mockedApi.ledger.mockResolvedValue([]);
   });
 
-  it('loads campaign and cashback balance', async () => {
-    const { getByText, getAllByText } = render(<App />);
+  it('shows Spotify purchase flow and hides campaign debug until Dev opens', async () => {
+    const { getByText, getByLabelText, queryByText, queryAllByText } = render(<App />);
     await waitFor(() => {
-      expect(getAllByText('Flash Cashback').length).toBeGreaterThan(0);
+      expect(getByText('Pay with Cashi. Earn cashback.')).toBeTruthy();
+      expect(getByText('Spotify Gift Card')).toBeTruthy();
+      expect(getByText(/spend from/)).toBeTruthy();
+    });
+    expect(queryAllByText(/Shopee/).length).toBe(0);
+    expect(queryByText('Developer tools')).toBeNull();
+    expect(queryByText(/Spent/)).toBeNull();
+
+    fireEvent.press(getByLabelText('Open developer tools'));
+    await waitFor(() => {
+      expect(getByText('Developer tools')).toBeTruthy();
       expect(getByText(/Active/)).toBeTruthy();
-      expect(getAllByText('cashi').length).toBeGreaterThan(0);
+      expect(getByText(/Interview \/ ops helpers/)).toBeTruthy();
     });
   });
 });
