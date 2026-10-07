@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
+  Platform,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -199,9 +200,11 @@ export default function App() {
     : 0;
   const activeUser = USERS.find((u) => u.id === userId)?.label ?? userId;
 
+  const androidTopInset = Platform.OS === 'android' ? (StatusBar.currentHeight ?? 28) : 0;
+
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.white} />
+    <SafeAreaView style={[styles.safeArea, { paddingTop: androidTopInset }]}>
+      <StatusBar barStyle="dark-content" backgroundColor={colors.white} translucent={false} />
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.nav}>
           <Text style={styles.navWordmark}>cashi</Text>
@@ -214,15 +217,17 @@ export default function App() {
           </Pressable>
         </View>
 
-        <View style={styles.card}>
-          <Text style={styles.cardLogo}>cashi</Text>
-          <View style={styles.cardChip} />
-          <View style={styles.cardFooter}>
-            <View>
-              <Text style={styles.cardProduct}>Flash Cashback</Text>
-              <Text style={styles.cardRate}>5% on eligible spend</Text>
+        <View style={styles.cardWrap}>
+          <View style={styles.card}>
+            <Text style={styles.cardLogo}>cashi</Text>
+            <View style={styles.cardChip} />
+            <View style={styles.cardFooter}>
+              <View>
+                <Text style={styles.cardProduct}>Flash Cashback</Text>
+                <Text style={styles.cardRate}>5% on eligible spend</Text>
+              </View>
+              <Text style={styles.cardNetwork}>VISA</Text>
             </View>
-            <Text style={styles.cardNetwork}>VISA</Text>
           </View>
         </View>
 
@@ -409,12 +414,13 @@ export default function App() {
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.white },
-  scrollContent: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 48 },
+  scrollContent: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 48 },
   nav: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 16,
+    marginTop: 4,
   },
   navWordmark: {
     fontSize: 22,
@@ -432,16 +438,23 @@ const styles = StyleSheet.create({
     backgroundColor: colors.track,
   },
   debugBtnText: { fontSize: 12, fontWeight: '800', color: colors.muted, letterSpacing: 0.5 },
+  cardWrap: {
+    width: '100%',
+    alignItems: 'center',
+    marginBottom: 22,
+  },
   card: {
     backgroundColor: colors.orange,
     borderRadius: 18,
     paddingHorizontal: 22,
     paddingTop: 22,
     paddingBottom: 18,
+    // Standard card ratio; avoid maxHeight — it breaks width/centering on Android.
+    width: '92%',
+    maxWidth: 340,
     aspectRatio: 1.586,
-    maxHeight: 200,
+    alignSelf: 'center',
     justifyContent: 'space-between',
-    marginBottom: 22,
     shadowColor: colors.orangeDeep,
     shadowOpacity: 0.28,
     shadowRadius: 16,
