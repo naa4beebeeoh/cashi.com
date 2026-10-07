@@ -1,7 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Keyboard,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -115,9 +118,29 @@ export default function App() {
   const [lastPayment, setLastPayment] = useState<PaymentResult | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [keyboardPad, setKeyboardPad] = useState(0);
+  /** Only Redeem needs scroll-to-end; Pay amount is higher on the screen. */
+  const focusedFieldRef = useRef<'pay' | 'redeem' | null>(null);
+  const scrollRef = useRef<ScrollView>(null);
 
   const amountNum = Number(payAmount);
   const previewCashback = useMemo(() => estimateCashback(amountNum), [amountNum]);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const showSub = Keyboard.addListener(showEvent, (e) => {
+      setKeyboardPad(e.endCoordinates.height);
+      if (focusedFieldRef.current === 'redeem') {
+        setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 50);
+      }
+    });
+    const hideSub = Keyboard.addListener(hideEvent, () => setKeyboardPad(0));
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   async function refresh(nextUser = userId) {
     setLoading(true);
@@ -199,10 +222,23 @@ export default function App() {
     : 0;
   const activeUser = USERS.find((u) => u.id === userId)?.label ?? userId;
 
+  const androidTopInset = Platform.OS === 'android' ? (StatusBar.currentHeight ?? 28) : 0;
+
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.white} />
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+    <SafeAreaView style={[styles.safeArea, { paddingTop: androidTopInset }]}>
+      <StatusBar barStyle="dark-content" backgroundColor={colors.white} translucent={false} />
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={androidTopInset}
+      >
+        <ScrollView
+          ref={scrollRef}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: 48 + keyboardPad }]}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
+        >
         <View style={styles.nav}>
           <Text style={styles.navWordmark}>cashi</Text>
           <Pressable
@@ -214,15 +250,17 @@ export default function App() {
           </Pressable>
         </View>
 
-        <View style={styles.card}>
-          <Text style={styles.cardLogo}>cashi</Text>
-          <View style={styles.cardChip} />
-          <View style={styles.cardFooter}>
-            <View>
-              <Text style={styles.cardProduct}>Flash Cashback</Text>
-              <Text style={styles.cardRate}>5% on eligible spend</Text>
+        <View style={styles.cardWrap}>
+          <View style={styles.card}>
+            <Text style={styles.cardLogo}>cashi</Text>
+            <View style={styles.cardChip} />
+            <View style={styles.cardFooter}>
+              <View>
+                <Text style={styles.cardProduct}>Flash Cashback</Text>
+                <Text style={styles.cardRate}>5% on eligible spend</Text>
+              </View>
+              <Text style={styles.cardNetwork}>VISA</Text>
             </View>
-            <Text style={styles.cardNetwork}>VISA</Text>
           </View>
         </View>
 
@@ -246,6 +284,14 @@ export default function App() {
               style={styles.amountInput}
               placeholder="0"
               placeholderTextColor={colors.muted}
+              onFocus={() => {
+                focusedFieldRef.current = 'pay';
+              }}
+              onBlur={() => {
+                if (focusedFieldRef.current === 'pay') {
+                  focusedFieldRef.current = null;
+                }
+              }}
             />
             <Text style={styles.amountCurrency}>IDR</Text>
           </View>
@@ -300,6 +346,17 @@ export default function App() {
             style={styles.input}
             placeholder="Amount IDR"
             placeholderTextColor={colors.muted}
+            onFocus={() => {
+              focusedFieldRef.current = 'redeem';
+              requestAnimationFrame(() => {
+                setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 80);
+              });
+            }}
+            onBlur={() => {
+              if (focusedFieldRef.current === 'redeem') {
+                focusedFieldRef.current = null;
+              }
+            }}
           />
           <Pressable onPress={onRedeem} style={styles.secondaryBtn} disabled={loading}>
             <Text style={styles.secondaryBtnText}>Redeem to payout</Text>
@@ -309,7 +366,8 @@ export default function App() {
         {loading ? <ActivityIndicator style={{ marginTop: 12 }} color={colors.orange} /> : null}
         {message && !lastPayment ? <Text style={styles.message}>{message}</Text> : null}
         {error ? <Text style={styles.error}>{error}</Text> : null}
-      </ScrollView>
+        </ScrollView>
+      </KeyboardAvoidingView>
 
       <Modal
         visible={debugOpen}
@@ -409,12 +467,14 @@ export default function App() {
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.white },
-  scrollContent: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 48 },
+  flex: { flex: 1 },
+  scrollContent: { paddingHorizontal: 20, paddingTop: 12, flexGrow: 1 },
   nav: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 16,
+    marginTop: 4,
   },
   navWordmark: {
     fontSize: 22,
@@ -432,16 +492,23 @@ const styles = StyleSheet.create({
     backgroundColor: colors.track,
   },
   debugBtnText: { fontSize: 12, fontWeight: '800', color: colors.muted, letterSpacing: 0.5 },
+  cardWrap: {
+    width: '100%',
+    alignItems: 'center',
+    marginBottom: 22,
+  },
   card: {
     backgroundColor: colors.orange,
     borderRadius: 18,
     paddingHorizontal: 22,
     paddingTop: 22,
     paddingBottom: 18,
+    // Standard card ratio; avoid maxHeight — it breaks width/centering on Android.
+    width: '92%',
+    maxWidth: 340,
     aspectRatio: 1.586,
-    maxHeight: 200,
+    alignSelf: 'center',
     justifyContent: 'space-between',
-    marginBottom: 22,
     shadowColor: colors.orangeDeep,
     shadowOpacity: 0.28,
     shadowRadius: 16,
