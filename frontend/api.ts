@@ -13,55 +13,105 @@ function resolveApiUrl() {
 
 const apiUrl = resolveApiUrl();
 
-export type CardSummary = {
+export type Campaign = {
   id: string;
   name: string;
-  lastFour: string;
+  rateBps: number;
+  minPaymentIdr: number;
+  dailyCapIdr: number;
+  budgetTotalIdr: number;
+  budgetSpentIdr: number;
+  budgetLeftIdr: number;
   status: string;
-  currentBalance: number;
-  availableCredit: number;
-  creditLimit: number;
-  paymentDueDate: string;
+  timezone: string;
 };
 
-export type Transaction = {
+export type CashbackSummary = {
+  userId: string;
+  availableIdr: number;
+  redeemedIdr: number;
+  earnedTodayIdr: number;
+  dailyCapIdr: number;
+  dailyLeftIdr: number;
+};
+
+export type PaymentResult = {
+  paymentId: string;
+  userId: string;
+  amountIdr: number;
+  cashbackIdr: number;
+  awardReason: string;
+  availableIdr: number;
+  earnedTodayIdr: number;
+  budgetLeftIdr: number;
+  idempotentReplay: boolean;
+};
+
+export type RedeemResult = {
+  redemptionId: string;
+  userId: string;
+  amountIdr: number;
+  availableIdr: number;
+  redeemedIdr: number;
+  idempotentReplay: boolean;
+};
+
+export type LedgerEntry = {
   id: string;
-  merchant: string;
-  category: string;
-  amount: number;
-  date: string;
+  entryType: string;
+  amountIdr: number;
+  paymentId?: string;
+  redemptionId?: string;
+  createdAt: string;
 };
 
-export type Position = {
-  symbol: string;
-  name: string;
-  shares: number;
-  marketValue: number;
-  dailyChange: number;
-};
+async function requestJSON<T>(
+  path: string,
+  init?: RequestInit & { userId?: string; idempotencyKey?: string },
+): Promise<T> {
+  const headers = new Headers(init?.headers);
+  headers.set('Content-Type', 'application/json');
+  if (init?.userId) headers.set('X-User-ID', init.userId);
+  if (init?.idempotencyKey) headers.set('Idempotency-Key', init.idempotencyKey);
 
-export type Portfolio = {
-  name: string;
-  marketValue: number;
-  dailyChange: number;
-  dailyChangePercent: number;
-  positions: Position[];
-};
-
-export async function requestJSON<T>(path: string): Promise<T> {
-  const response = await fetch(`${apiUrl}${path}`);
+  const response = await fetch(`${apiUrl}${path}`, {
+    ...init,
+    headers,
+  });
+  const body = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(`API returned ${response.status}`);
+    const message = typeof body?.error === 'string' ? body.error : `API returned ${response.status}`;
+    throw new Error(message);
   }
-  return response.json() as Promise<T>;
+  return body as T;
+}
+
+function newIdempotencyKey() {
+  return `rn-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
 export const api = {
   health: () => requestJSON<{ status?: string }>('/healthz'),
-  cards: () => requestJSON<CardSummary[]>('/api/v1/cards'),
-  cardSummary: (cardID: string) => requestJSON<CardSummary>(`/api/v1/cards/${cardID}/summary`),
-  transactions: (cardID: string) => requestJSON<Transaction[]>(`/api/v1/cards/${cardID}/transactions`),
-  portfolio: () => requestJSON<Portfolio>('/api/v1/portfolio'),
+  ready: () => requestJSON<{ status?: string }>('/readyz'),
+  campaign: () => requestJSON<Campaign>('/api/v1/campaign'),
+  cashback: (userId: string) =>
+    requestJSON<CashbackSummary>('/api/v1/me/cashback', { userId }),
+  ledger: (userId: string) =>
+    requestJSON<LedgerEntry[]>('/api/v1/me/ledger', { userId }),
+  pay: (userId: string, amountIdr: number, idempotencyKey = newIdempotencyKey()) =>
+    requestJSON<PaymentResult>('/api/v1/payments', {
+      method: 'POST',
+      userId,
+      idempotencyKey,
+      body: JSON.stringify({ amountIdr }),
+    }),
+  redeem: (userId: string, amountIdr: number, idempotencyKey = newIdempotencyKey()) =>
+    requestJSON<RedeemResult>('/api/v1/redeem', {
+      method: 'POST',
+      userId,
+      idempotencyKey,
+      body: JSON.stringify({ amountIdr }),
+    }),
 };
 
-export { apiUrl };
+export { apiUrl, newIdempotencyKey };

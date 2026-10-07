@@ -1,46 +1,104 @@
-# cashi.com
+# cashi.com — Flash Cashback
 
-Monorepo starter for the Cashi backend API and React Native app.
+Take-home MVP: users pay amounts in IDR, earn 5% cashback under campaign rules, and redeem balances.
 
-## Projects
+**Stack:** Go · PostgreSQL · Redis · Expo React Native
 
-- `backend/`: Go HTTP API, listening on `:8080` by default.
-- `frontend/`: Expo React Native app with TypeScript.
+Read [DECISIONS.md](DECISIONS.md) for production tradeoffs and the interview demo script.
 
-## Run the backend
+## Rules
+
+- 5% cashback on payments ≥ **Rp20.000**
+- Per-user daily earn cap **Rp50.000** (`Asia/Jakarta` day)
+- Campaign budget **Rp10.000.000**; when spent, campaign is exhausted
+- Users can redeem available cashback (ledger debit; no bank rail)
+
+## Prerequisites
+
+- Go 1.22+
+- Node 20+ / npm
+- Docker Desktop (Compose)
 
 ```sh
+export PATH="$HOME/.docker/bin:$PATH"   # if needed on macOS
+docker ps                               # engine must be running
+```
+
+## Run the demo
+
+```sh
+# 1) Postgres + Redis (applies backend/migrations on first boot)
+docker compose up -d
+
+# 2) API
 cd backend
+cp -n .env.example .env   # optional; defaults match Compose
 go run ./cmd/api
-```
 
-Check that it is running:
-
-```sh
-curl http://localhost:8080/healthz
-```
-
-The endpoint returns `{"status":"ok"}`. Set `API_ADDR` to change the listen address.
-
-## Feature journeys
-
-The demo contains two read-only vertical slices that represent the two product areas:
-
-- Credit Card: `GET /api/v1/cards`, `GET /api/v1/cards/{cardID}/summary`, and `GET /api/v1/cards/{cardID}/transactions`.
-- Trading: `GET /api/v1/portfolio` and `GET /api/v1/portfolio/positions`.
-
-The API currently serves deterministic in-memory data so the mobile workflows can be exercised without a database or external market provider. The app presents explicit loading, empty, and error states, and the Trading slice intentionally stops short of order execution. In a production system, the next boundaries would be authentication and authorization, persistent repositories, monetary types, dependency-aware readiness checks, request timeouts, audit logging, and market-data freshness.
-
-The frontend switches between the two journeys with the Credit Card and Trading tabs. `EXPO_PUBLIC_API_URL` remains the only environment-specific client setting.
-
-Run backend tests with `cd backend && go test ./...`.
-
-## Run the frontend
-
-```sh
+# 3) Mobile / web client (other terminal)
 cd frontend
+cp -n .env.example .env
 npm install
-npm start
+npm run web          # or: npm start
 ```
 
-Use Expo Go or an emulator to open the app. The app pings the backend at `EXPO_PUBLIC_API_URL` (defaults to `http://localhost:8080`). For an Android emulator, set it to `http://10.0.2.2:8080`; for a physical device, use the development machine's LAN IP. Copy `.env.example` to `.env` to set the URL.
+Health:
+
+```sh
+curl -s localhost:8080/healthz
+curl -s localhost:8080/readyz
+```
+
+Seed users (send as `X-User-ID`): `user_a` (Ayu), `user_b` (Budi).
+
+### Example payment
+
+```sh
+curl -s -X POST localhost:8080/api/v1/payments \
+  -H 'Content-Type: application/json' \
+  -H 'X-User-ID: user_a' \
+  -H 'Idempotency-Key: demo-1' \
+  -d '{"amountIdr":100000}'
+```
+
+## API
+
+| Method | Path | Notes |
+|--------|------|-------|
+| GET | `/healthz` | liveness |
+| GET | `/readyz` | Postgres + Redis |
+| GET | `/api/v1/campaign` | budget + status |
+| GET | `/api/v1/me/cashback` | requires `X-User-ID` |
+| GET | `/api/v1/me/ledger` | requires `X-User-ID` |
+| POST | `/api/v1/payments` | body `{ "amountIdr": N }`, requires `X-User-ID` + `Idempotency-Key` |
+| POST | `/api/v1/redeem` | same headers/body shape |
+
+Money is always integer IDR. Auth is out of scope; identity is the `X-User-ID` header.
+
+## Tests
+
+```sh
+cd backend && go test ./internal/domain/...
+
+# integration (Compose must be up)
+cd backend && RUN_INTEGRATION=1 go test ./internal/cashback/... -count=1
+
+cd frontend && npm test
+```
+
+## Reset demo data
+
+```sh
+docker compose down -v
+docker compose up -d
+```
+
+## Layout
+
+```
+backend/cmd/api          # process entry
+backend/internal/...     # config, domain, cashback service, httpapi, postgres, redis
+backend/migrations       # SQL applied by Compose on first start
+frontend/                # Expo app (Flash Cashback UI)
+DECISIONS.md             # interview script + tradeoffs
+```
