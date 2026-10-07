@@ -183,13 +183,29 @@ docker compose down -v
 docker compose up -d
 ```
 
+## Ops: daily audit log
+
+Production-support snapshot of campaign budget + Jakarta-day earn/redeem activity (invariant checks included):
+
+```sh
+# human + JSON under backend/reports/audit/YYYY-MM-DD.{txt,json}
+./scripts/ops-daily-audit.sh
+
+# stdout only, or a specific day
+cd backend && go run ./cmd/opsaudit
+cd backend && go run ./cmd/opsaudit -day 2026-10-07 -out reports/audit
+```
+
+Uses `DATABASE_URL` / `APP_ENV` like the API. Exit `1` if budget or daily-cap integrity fails (suitable for cron alerting).
+
 ## Layout
 
 ```
 backend/cmd/api          # process entry
+backend/cmd/opsaudit     # daily campaign / earn audit for ops
 backend/internal/...     # config, domain, cashback service, httpapi, postgres, redis
 backend/migrations       # SQL applied by Compose on first start
 frontend/                # Expo app (Flash Cashback UI)
 env/demo|staging|production/  # env profile templates
-scripts/                 # infra start, use-env, API smoke helpers
+scripts/                 # infra start, use-env, API smoke, ops audit
 ```
