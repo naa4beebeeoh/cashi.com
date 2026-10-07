@@ -2,6 +2,7 @@ node_modules/
 .expo/
 dist/
 coverage/
+backend/reports/
 .env
 .env.*
 !.env.example

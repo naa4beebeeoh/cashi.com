@@ -1,25 +1,37 @@
 package httpapi
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
 	"log"
 	"net/http"
 
-	"github.com/cashi/cashi/backend/internal/cashback"
 	"github.com/cashi/cashi/backend/internal/domain"
-	"github.com/cashi/cashi/backend/internal/postgres"
-	"github.com/cashi/cashi/backend/internal/redisstore"
 )
 
-type Server struct {
-	svc   *cashback.Service
-	db    *postgres.Store
-	redis *redisstore.Store
+// CashbackService is the application API the HTTP layer depends on.
+type CashbackService interface {
+	GetCampaign(ctx context.Context) (domain.Campaign, error)
+	GetSummary(ctx context.Context, userID string) (domain.CashbackSummary, error)
+	ListLedger(ctx context.Context, userID string) ([]domain.LedgerEntry, error)
+	Pay(ctx context.Context, userID string, amountIDR int64, idempotencyKey string) (domain.PaymentResult, error)
+	Redeem(ctx context.Context, userID string, amountIDR int64, idempotencyKey string) (domain.RedeemResult, error)
 }
 
-func New(svc *cashback.Service, db *postgres.Store, redis *redisstore.Store) *Server {
+// Pinger is used by /readyz for dependency checks.
+type Pinger interface {
+	Ping(ctx context.Context) error
+}
+
+type Server struct {
+	svc   CashbackService
+	db    Pinger
+	redis Pinger
+}
+
+func New(svc CashbackService, db Pinger, redis Pinger) *Server {
 	return &Server{svc: svc, db: db, redis: redis}
 }
 

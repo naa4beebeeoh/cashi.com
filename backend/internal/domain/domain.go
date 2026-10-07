@@ -94,6 +94,66 @@ func CashbackForPayment(amountIDR int64) int64 {
 	return amountIDR * RateBPS / 10_000
 }
 
+// AwardInput is the pure-function view of campaign + daily state at earn time.
+type AwardInput struct {
+	AmountIDR      int64
+	MinPaymentIDR  int64
+	RateBPS        int
+	DailyCapIDR    int64
+	EarnedTodayIDR int64
+	BudgetTotalIDR int64
+	BudgetSpentIDR int64
+	CampaignStatus string
+}
+
+// AwardDecision is the cashback amount and reason after caps.
+type AwardDecision struct {
+	CashbackIDR int64
+	Reason      AwardReason
+}
+
+// ComputeAward applies min payment, rate, daily cap, and campaign budget clamps.
+// Order: raw rate → budget exhausted → daily cap → partial clamps (budget wins over daily when both bind).
+func ComputeAward(in AwardInput) AwardDecision {
+	raw := int64(0)
+	reason := ReasonBelowMinimum
+	if in.AmountIDR >= in.MinPaymentIDR {
+		raw = in.AmountIDR * int64(in.RateBPS) / 10_000
+		reason = ReasonAwarded
+	}
+
+	budgetLeft := in.BudgetTotalIDR - in.BudgetSpentIDR
+	dailyLeft := in.DailyCapIDR - in.EarnedTodayIDR
+	if dailyLeft < 0 {
+		dailyLeft = 0
+	}
+
+	award := raw
+	switch {
+	case award > 0 && (in.CampaignStatus == "exhausted" || budgetLeft <= 0):
+		return AwardDecision{CashbackIDR: 0, Reason: ReasonBudgetGone}
+	case award > 0 && dailyLeft <= 0:
+		return AwardDecision{CashbackIDR: 0, Reason: ReasonDailyCap}
+	case award > 0:
+		limitedByDaily := false
+		limitedByBudget := false
+		if award > dailyLeft {
+			award = dailyLeft
+			limitedByDaily = true
+		}
+		if award > budgetLeft {
+			award = budgetLeft
+			limitedByBudget = true
+		}
+		if limitedByBudget {
+			reason = ReasonPartialBudget
+		} else if limitedByDaily {
+			reason = ReasonPartialDaily
+		}
+	}
+	return AwardDecision{CashbackIDR: award, Reason: reason}
+}
+
 func Clamp(n, min, max int64) int64 {
 	if n < min {
 		return min

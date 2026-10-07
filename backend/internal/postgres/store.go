@@ -192,44 +192,18 @@ func (s *Store) Earn(ctx context.Context, p EarnParams) (domain.PaymentResult, e
 		return domain.PaymentResult{}, err
 	}
 
-	raw := int64(0)
-	reason := domain.ReasonBelowMinimum
-	if p.AmountIDR >= minPayment {
-		raw = p.AmountIDR * int64(rateBPS) / 10_000
-		reason = domain.ReasonAwarded
-	}
-
-	budgetLeft := budgetTotal - budgetSpent
-	dailyLeft := dailyCap - earnedToday
-	if dailyLeft < 0 {
-		dailyLeft = 0
-	}
-
-	award := raw
-	switch {
-	case award > 0 && (status == "exhausted" || budgetLeft <= 0):
-		award = 0
-		reason = domain.ReasonBudgetGone
-	case award > 0 && dailyLeft <= 0:
-		award = 0
-		reason = domain.ReasonDailyCap
-	case award > 0:
-		limitedByDaily := false
-		limitedByBudget := false
-		if award > dailyLeft {
-			award = dailyLeft
-			limitedByDaily = true
-		}
-		if award > budgetLeft {
-			award = budgetLeft
-			limitedByBudget = true
-		}
-		if limitedByBudget {
-			reason = domain.ReasonPartialBudget
-		} else if limitedByDaily {
-			reason = domain.ReasonPartialDaily
-		}
-	}
+	decision := domain.ComputeAward(domain.AwardInput{
+		AmountIDR:      p.AmountIDR,
+		MinPaymentIDR:  minPayment,
+		RateBPS:        rateBPS,
+		DailyCapIDR:    dailyCap,
+		EarnedTodayIDR: earnedToday,
+		BudgetTotalIDR: budgetTotal,
+		BudgetSpentIDR: budgetSpent,
+		CampaignStatus: status,
+	})
+	award := decision.CashbackIDR
+	reason := decision.Reason
 
 	paymentID := uuid.New()
 	_, err = tx.Exec(ctx, `

@@ -50,7 +50,7 @@ func main() {
 	}
 
 	go func() {
-		log.Printf("API listening on %s", cfg.Addr)
+		log.Printf("API listening on %s (APP_ENV=%s)", cfg.Addr, cfg.Env)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatal(err)
 		}

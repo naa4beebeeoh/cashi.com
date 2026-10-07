@@ -16,6 +16,7 @@ Take-home MVP: users pay amounts in IDR, earn 5% cashback under campaign rules, 
 - Go 1.22+
 - Node 20+ / npm
 - Docker Desktop running (Compose)
+- For Android: Android Studio emulator (or a device) with Expo Go
 
 ```sh
 export PATH="$HOME/.docker/bin:$PATH"   # if needed on macOS
@@ -24,7 +25,7 @@ docker ps                               # must succeed before continuing
 
 ## Run the demo
 
-Open three terminals from the repo root.
+Open three terminals from the repo root (infra + API + client).
 
 ```sh
 # 1) Postgres + Redis (applies backend/migrations on first boot)
@@ -33,21 +34,57 @@ docker compose up -d
 ```
 
 ```sh
-# 2) API → http://localhost:8080
+# 2) Pick an env profile (writes backend/.env + frontend/.env)
+./scripts/use-env.sh demo
+# other profiles: staging | production  (edit placeholders first)
+```
+
+```sh
+# 3) API → http://localhost:8080
 cd backend
-cp -n .env.example .env   # optional; defaults match Compose
 go run ./cmd/api
 ```
 
 ```sh
-# 3) Web client → http://localhost:8081
+# 4) Client (pick web and/or Android)
 cd frontend
-cp -n .env.example .env
 npm install
+```
+
+### Web
+
+```sh
+cd frontend
 npm run web
 ```
 
-Then open **http://localhost:8081** in a browser. Pick a seed user in the UI and try a payment / redeem.
+Open **http://localhost:8081**. The client calls the API at `http://localhost:8080`.
+
+### Android (emulator)
+
+1. Start your emulator first (e.g. Pixel in Android Studio) and confirm `adb devices` shows it as `device`.
+2. From `frontend`, if Metro is **not** already running:
+
+```sh
+cd frontend
+npm run android
+```
+
+If you already started web (`npm run web` on port 8081), **do not** start a second Expo process. In that Metro terminal press `a`, or run `npx expo start --android` only when 8081 is free. A second `npm run android` will ask to use another port — choose the existing Metro instead.
+
+Expo installs/opens **Expo Go** and loads the app. On the Android emulator, `localhost` is the emulator itself, so the app rewrites the API host to `http://10.0.2.2:8080` (your machine). You do not need to change `.env` for this.
+
+### Web and Android together
+
+One Metro server can serve both. From `frontend` (with emulator already running):
+
+```sh
+npx expo start
+```
+
+Then press `w` for web and/or `a` for Android.
+
+Pick a seed user in the UI and try a payment / redeem.
 
 Health check (API terminal must be running):
 
@@ -90,14 +127,54 @@ Money is always integer IDR. Auth is out of scope; identity is the `X-User-ID` h
 
 ## Tests
 
+Unit tests (no Docker) — domain award math, service validation, HTTP contracts, config fail-closed:
+
 ```sh
-cd backend && go test ./internal/domain/...
+cd backend && go test ./internal/domain/... ./internal/config/... ./internal/httpapi/... ./internal/cashback/... -count=1
+```
 
-# integration (Compose must be up)
+Local coverage HTML (Go native — there is no built-in HTML *test* report, only coverage):
+
+```sh
+cd backend
+mkdir -p reports
+go test ./internal/domain/... ./internal/config/... ./internal/httpapi/... ./internal/cashback/... \
+  -count=1 -coverprofile=reports/coverage.out
+go tool cover -html=reports/coverage.out -o reports/coverage.html
+open reports/coverage.html   # macOS
+```
+
+CI: pushes to `feat/flash-cashback-mvp` run [Backend unit tests](.github/workflows/backend-unit.yml), upload `coverage.html` + JUnit as artifacts, and write results to the Actions job summary.
+
+Integration tests (Compose must be up) — idempotency, daily cap, concurrent budget:
+
+```sh
 cd backend && RUN_INTEGRATION=1 go test ./internal/cashback/... -count=1
+```
 
+```sh
 cd frontend && npm test
 ```
+
+## Environments
+
+Profiles live under `env/<name>/` as committed **examples** (no secrets). Activate one locally:
+
+```sh
+./scripts/use-env.sh demo         # local Compose defaults
+./scripts/use-env.sh staging      # edit CHANGE_ME / hosts first
+./scripts/use-env.sh production   # edit CHANGE_ME / hosts first
+```
+
+| Profile | `APP_ENV` | Backend defaults | Typical use |
+|---------|-----------|------------------|-------------|
+| `demo` | `demo` | localhost Compose URLs allowed | Interview / local demo |
+| `staging` | `staging` | **required** `DATABASE_URL` + `REDIS_URL` (fail closed) | Pre-prod |
+| `production` | `production` | same fail-closed rules | Prod |
+
+Frontend knobs: `EXPO_PUBLIC_APP_ENV`, `EXPO_PUBLIC_API_URL` (baked in at Metro/Expo build time).
+
+Deploy pipeline shape: inject the matching profile’s values as process env (or copy into `backend/.env` / `frontend/.env` in CI). Do not commit filled staging/production files — `.env` is gitignored.
 
 ## Reset demo data
 
@@ -113,5 +190,6 @@ backend/cmd/api          # process entry
 backend/internal/...     # config, domain, cashback service, httpapi, postgres, redis
 backend/migrations       # SQL applied by Compose on first start
 frontend/                # Expo app (Flash Cashback UI)
-scripts/                 # infra start + API smoke helpers
+env/demo|staging|production/  # env profile templates
+scripts/                 # infra start, use-env, API smoke helpers
 ```
