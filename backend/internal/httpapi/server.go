@@ -33,8 +33,6 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/me/ledger", s.handleMeLedger)
 	mux.HandleFunc("POST /api/v1/payments", s.handlePay)
 	mux.HandleFunc("POST /api/v1/redeem", s.handleRedeem)
-	mux.HandleFunc("OPTIONS /api/v1/", s.handleOptions)
-	mux.HandleFunc("OPTIONS /api/v1/{path...}", s.handleOptions)
 	return withCORS(mux)
 }
 
@@ -142,10 +140,6 @@ func (s *Server) handleRedeem(w http.ResponseWriter, r *http.Request) {
 		status = http.StatusOK
 	}
 	writeJSON(w, status, result)
-}
-
-func (s *Server) handleOptions(w http.ResponseWriter, _ *http.Request) {
-	w.WriteHeader(http.StatusNoContent)
 }
 
 func decodeAmount(r *http.Request) (amountBody, error) {
