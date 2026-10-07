@@ -1,10 +1,13 @@
 name: Backend unit tests
 
-# Non-integration suite for interview / QA visibility on this feature branch.
+# Unit suite (no Docker). Integration tests stay opt-in via RUN_INTEGRATION=1.
 on:
   push:
     branches:
-      - feat/flash-cashback-mvp
+      - main
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 defaults:
@@ -13,7 +16,7 @@ defaults:
 
 jobs:
   unit:
-    name: Non-integration unit tests
+    name: Unit tests
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -58,7 +61,7 @@ jobs:
           fi
 
           {
-            echo "## Backend unit tests (non-integration)"
+            echo "## Backend unit tests"
             echo ""
             echo "| | |"
             echo "|---|---|"

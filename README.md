@@ -144,7 +144,7 @@ go tool cover -html=reports/coverage.out -o reports/coverage.html
 open reports/coverage.html   # macOS
 ```
 
-CI: pushes to `feat/flash-cashback-mvp` run [Backend unit tests](.github/workflows/backend-unit.yml), upload `coverage.html` + JUnit as artifacts, and write results to the Actions job summary.
+CI: pushes and PRs to `main` run [Backend unit tests](.github/workflows/backend-unit.yml), upload `coverage.html` + JUnit as artifacts, and write results to the Actions job summary.
 
 Integration tests (Compose must be up) — idempotency, daily cap, concurrent budget:
 
