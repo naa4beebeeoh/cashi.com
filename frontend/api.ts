@@ -1,14 +1,28 @@
+import { Platform } from 'react-native';
+
 function resolveApiUrl() {
   const configuredUrl = process.env.EXPO_PUBLIC_API_URL;
-  if (configuredUrl) return configuredUrl;
+  let url = configuredUrl;
 
-  if (typeof window !== 'undefined' && window.location?.origin) {
-    return window.location.origin
+  if (!url && typeof window !== 'undefined' && window.location?.origin) {
+    url = window.location.origin
       .replace('-8081.', '-8080.')
       .replace(':8081', ':8080');
   }
 
-  return 'http://localhost:8080';
+  if (!url) {
+    url = 'http://localhost:8080';
+  }
+
+  // Android emulator: localhost is the emulator itself; host machine is 10.0.2.2
+  if (
+    Platform.OS === 'android' &&
+    (url.includes('localhost') || url.includes('127.0.0.1'))
+  ) {
+    return url.replace('localhost', '10.0.2.2').replace('127.0.0.1', '10.0.2.2');
+  }
+
+  return url;
 }
 
 const apiUrl = resolveApiUrl();
