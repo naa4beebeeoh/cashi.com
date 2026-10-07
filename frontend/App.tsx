@@ -1,6 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Keyboard,
+  KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
@@ -116,9 +118,29 @@ export default function App() {
   const [lastPayment, setLastPayment] = useState<PaymentResult | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [keyboardPad, setKeyboardPad] = useState(0);
+  /** Only Redeem needs scroll-to-end; Pay amount is higher on the screen. */
+  const focusedFieldRef = useRef<'pay' | 'redeem' | null>(null);
+  const scrollRef = useRef<ScrollView>(null);
 
   const amountNum = Number(payAmount);
   const previewCashback = useMemo(() => estimateCashback(amountNum), [amountNum]);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const showSub = Keyboard.addListener(showEvent, (e) => {
+      setKeyboardPad(e.endCoordinates.height);
+      if (focusedFieldRef.current === 'redeem') {
+        setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 50);
+      }
+    });
+    const hideSub = Keyboard.addListener(hideEvent, () => setKeyboardPad(0));
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   async function refresh(nextUser = userId) {
     setLoading(true);
@@ -205,7 +227,18 @@ export default function App() {
   return (
     <SafeAreaView style={[styles.safeArea, { paddingTop: androidTopInset }]}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.white} translucent={false} />
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={androidTopInset}
+      >
+        <ScrollView
+          ref={scrollRef}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: 48 + keyboardPad }]}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
+        >
         <View style={styles.nav}>
           <Text style={styles.navWordmark}>cashi</Text>
           <Pressable
@@ -251,6 +284,14 @@ export default function App() {
               style={styles.amountInput}
               placeholder="0"
               placeholderTextColor={colors.muted}
+              onFocus={() => {
+                focusedFieldRef.current = 'pay';
+              }}
+              onBlur={() => {
+                if (focusedFieldRef.current === 'pay') {
+                  focusedFieldRef.current = null;
+                }
+              }}
             />
             <Text style={styles.amountCurrency}>IDR</Text>
           </View>
@@ -305,6 +346,17 @@ export default function App() {
             style={styles.input}
             placeholder="Amount IDR"
             placeholderTextColor={colors.muted}
+            onFocus={() => {
+              focusedFieldRef.current = 'redeem';
+              requestAnimationFrame(() => {
+                setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 80);
+              });
+            }}
+            onBlur={() => {
+              if (focusedFieldRef.current === 'redeem') {
+                focusedFieldRef.current = null;
+              }
+            }}
           />
           <Pressable onPress={onRedeem} style={styles.secondaryBtn} disabled={loading}>
             <Text style={styles.secondaryBtnText}>Redeem to payout</Text>
@@ -314,7 +366,8 @@ export default function App() {
         {loading ? <ActivityIndicator style={{ marginTop: 12 }} color={colors.orange} /> : null}
         {message && !lastPayment ? <Text style={styles.message}>{message}</Text> : null}
         {error ? <Text style={styles.error}>{error}</Text> : null}
-      </ScrollView>
+        </ScrollView>
+      </KeyboardAvoidingView>
 
       <Modal
         visible={debugOpen}
@@ -414,7 +467,8 @@ export default function App() {
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.white },
-  scrollContent: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 48 },
+  flex: { flex: 1 },
+  scrollContent: { paddingHorizontal: 20, paddingTop: 12, flexGrow: 1 },
   nav: {
     flexDirection: 'row',
     alignItems: 'center',

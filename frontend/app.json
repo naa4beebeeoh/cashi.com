@@ -8,6 +8,9 @@
     "splash": {
       "backgroundColor": "#f4f7f5"
     },
-    "assetBundlePatterns": ["**/*"]
+    "assetBundlePatterns": ["**/*"],
+    "android": {
+      "softwareKeyboardLayoutMode": "resize"
+    }
   }
 }
