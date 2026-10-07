@@ -1,10 +1,8 @@
 name: Backend unit tests
 
-# Unit suite (no Docker). Integration tests stay opt-in via RUN_INTEGRATION=1.
+# Fast PR gate (no Docker). Integration + frontend run on push to main
+# via .github/workflows/main-tests.yml.
 on:
-  push:
-    branches:
-      - main
   pull_request:
     branches:
       - main
@@ -80,7 +78,7 @@ jobs:
             echo "| Config | staging/production fail-closed; dotenv does not override process env |"
             echo "| HTTP | httptest + stubs: status mapping, CORS, \`/readyz\` |"
             echo "| Service | Pay/Redeem validation; Asia/Jakarta day boundary |"
-            echo "| Integration | **Not in this job** — \`RUN_INTEGRATION=1\` + Docker Compose |"
+            echo "| Integration | **Not in this job** — see \`main-tests.yml\` on push to \`main\` |"
             echo ""
             if [[ -f reports/coverage.txt ]]; then
               echo "### Coverage by function"
