@@ -1,0 +1,10 @@
+# Maestro workspace — https://docs.maestro.dev/
+# Local default targets Expo Go on Android. Override APP_ID / EXPO_URL via CLI -e.
+name: cashi-flash-cashback
+appId: host.exp.exponent
+env:
+  # Expo Go: Android host.exp.exponent · iOS host.exp.Exponent
+  # Standalone / EAS: com.cashi.flashcashback (see frontend/app.json)
+  APP_ID: host.exp.exponent
+  # Copy the exp:// URL from Metro (`npm run android` / `npm run web` logs).
+  EXPO_URL: exp://127.0.0.1:8081

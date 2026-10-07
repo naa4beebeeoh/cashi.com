@@ -1,0 +1,14 @@
+# Open the Flash Cashback app inside Expo Go (or any URL scheme).
+# Requires Metro + EXPO_URL. For standalone builds, prefer launchApp instead.
+appId: ${APP_ID}
+---
+- openLink: ${EXPO_URL}
+# Prior flow may have left the Dev drawer open (single device).
+- runFlow:
+    when:
+      visible: "Developer tools"
+    commands:
+      - tapOn: "Close"
+- extendedWaitUntil:
+    visible: "Pay with Cashi. Earn cashback."
+    timeout: 60000

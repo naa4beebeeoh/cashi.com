@@ -245,6 +245,7 @@ export default function App() {
             onPress={() => setDebugOpen(true)}
             style={styles.debugBtn}
             accessibilityLabel="Open developer tools"
+            testID="dev-tools"
           >
             <Text style={styles.debugBtnText}>Dev</Text>
           </Pressable>
@@ -284,6 +285,7 @@ export default function App() {
               style={styles.amountInput}
               placeholder="0"
               placeholderTextColor={colors.muted}
+              testID="pay-amount-input"
               onFocus={() => {
                 focusedFieldRef.current = 'pay';
               }}
@@ -312,6 +314,7 @@ export default function App() {
             disabled={loading}
             accessibilityLabel="Pay gift card"
             accessibilityState={{ disabled: loading }}
+            testID="pay-gift-card"
           >
             <Text style={styles.primaryBtnText}>
               Pay {Number.isFinite(amountNum) && amountNum > 0 ? money(amountNum) : '…'}
@@ -352,6 +355,7 @@ export default function App() {
             style={styles.input}
             placeholder="Amount IDR"
             placeholderTextColor={colors.muted}
+            testID="redeem-amount-input"
             onFocus={() => {
               focusedFieldRef.current = 'redeem';
               requestAnimationFrame(() => {
@@ -370,6 +374,7 @@ export default function App() {
             disabled={loading}
             accessibilityLabel="Redeem to payout"
             accessibilityState={{ disabled: loading }}
+            testID="redeem-payout"
           >
             <Text style={styles.secondaryBtnText}>Redeem to payout</Text>
           </Pressable>

@@ -10,7 +10,11 @@
     },
     "assetBundlePatterns": ["**/*"],
     "android": {
+      "package": "com.cashi.flashcashback",
       "softwareKeyboardLayoutMode": "resize"
+    },
+    "ios": {
+      "bundleIdentifier": "com.cashi.flashcashback"
     }
   }
 }

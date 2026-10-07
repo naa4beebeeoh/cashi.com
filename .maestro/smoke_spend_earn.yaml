@@ -1,0 +1,27 @@
+# Smoke: customer spend/earn surface is visible; Dev drawer opens/closes.
+# Prerequisites: emulator/simulator, Expo Go, Metro on EXPO_URL, API optional.
+appId: ${APP_ID}
+name: Smoke — spend & earn + Dev drawer
+tags:
+  - smoke
+---
+- runFlow: subflows/open_app.yaml
+- assertVisible: "Pay with Cashi. Earn cashback."
+- assertVisible: "Spotify Gift Card"
+- assertVisible:
+    id: "pay-gift-card"
+- assertVisible:
+    id: "pay-amount-input"
+# Prior money flow may leave the ScrollView near Redeem — Dev is in the top nav.
+- scrollUntilVisible:
+    element:
+      id: "dev-tools"
+    direction: UP
+    timeout: 15000
+- tapOn:
+    id: "dev-tools"
+- assertVisible: "Developer tools"
+# Text selectors are regex; avoid bare "/" (can be read as /pattern/flags).
+- assertVisible: ".*ops helpers.*"
+- tapOn: "Close"
+- assertNotVisible: "Developer tools"
