@@ -101,6 +101,24 @@ Optional API smoke (after API is up):
 ./scripts/demo-smoke.sh
 ```
 
+### Demo: set campaign budget left
+
+Fast SQL fixture (skips daily-cap grind) so you can check the Expo campaign strip:
+
+```sh
+./scripts/demo-drain-budget.sh --leave 5000       # nearly empty, still active
+# refresh UI → low budget; Pay Rp100.000 → should take the last Rp5.000
+./scripts/demo-drain-budget.sh --leave 0          # exhausted
+# refresh UI → exhausted / no more cashback
+./scripts/demo-drain-budget.sh --leave 10000000   # full budget again
+```
+
+Real earn path (slower; good when only a little remains):
+
+```sh
+./scripts/demo-drain-budget.sh --leave 5000 --via-pay
+```
+
 ### Example payment
 
 ```sh
@@ -179,9 +197,12 @@ Deploy pipeline shape: inject the matching profile’s values as process env (or
 ## Reset demo data
 
 ```sh
-docker compose down -v
-docker compose up -d
+./scripts/demo-reset.sh              # seed (default): wipe volumes + re-seed
+./scripts/demo-reset.sh seed         # same
+./scripts/demo-reset.sh daily        # only zero today's daily-cap counters (Jakarta)
 ```
+
+`seed` restarts Compose with a clean Postgres/Redis (Ayu/Budi, full campaign budget). Restart the API afterward if it was running.
 
 ## Ops: daily audit log
 
