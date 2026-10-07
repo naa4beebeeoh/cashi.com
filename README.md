@@ -162,7 +162,10 @@ go tool cover -html=reports/coverage.out -o reports/coverage.html
 open reports/coverage.html   # macOS
 ```
 
-CI: pushes and PRs to `main` run [Backend unit tests](.github/workflows/backend-unit.yml), upload `coverage.html` + JUnit as artifacts, and write results to the Actions job summary.
+CI:
+
+- PRs to `main` → [Backend unit tests](.github/workflows/backend-unit.yml) (no Docker; integration tests skip)
+- Pushes to `main` → [Main branch tests](.github/workflows/main-tests.yml): all backend packages with `RUN_INTEGRATION=1` + Compose, plus frontend Jest
 
 Integration tests (Compose must be up) — idempotency, daily cap, concurrent budget:
 

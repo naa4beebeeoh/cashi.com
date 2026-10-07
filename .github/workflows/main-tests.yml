@@ -1,0 +1,127 @@
+name: Main branch tests
+
+# Full backend suite (unit + integration) and frontend Jest on every push to main.
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  backend:
+    name: Backend (unit + integration)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+
+      - name: Start Postgres + Redis
+        working-directory: ${{ github.workspace }}
+        run: |
+          docker compose up -d --wait
+          docker compose ps
+
+      - name: Run all backend tests
+        id: test
+        env:
+          RUN_INTEGRATION: "1"
+          DATABASE_URL: postgres://cashi:cashi@localhost:5432/cashi?sslmode=disable
+          REDIS_URL: redis://localhost:6379/0
+        run: |
+          mkdir -p reports
+          # Same package set as unit CI; RUN_INTEGRATION=1 un-skips cashback integration
+          # (domain/config/httpapi have no integration gate — they always run).
+          go run gotest.tools/gotestsum@v1.12.3 \
+            --junitfile reports/junit.xml \
+            --jsonfile reports/test.json \
+            --format standard-verbose \
+            -- -count=1 -covermode=atomic -coverprofile=reports/coverage.out \
+            ./internal/domain/... \
+            ./internal/config/... \
+            ./internal/httpapi/... \
+            ./internal/cashback/...
+
+      - name: Generate coverage HTML
+        if: always()
+        run: |
+          if [[ -f reports/coverage.out ]]; then
+            go tool cover -html=reports/coverage.out -o reports/coverage.html
+            go tool cover -func=reports/coverage.out | tee reports/coverage.txt
+          fi
+
+      - name: Write job summary
+        if: always()
+        run: |
+          TOTAL="n/a"
+          if [[ -f reports/coverage.out ]]; then
+            TOTAL=$(go tool cover -func=reports/coverage.out | awk '/total:/ {print $3}')
+          fi
+          {
+            echo "## Backend (unit + integration)"
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Commit | \`${{ github.sha }}\` |"
+            echo "| Result | ${{ steps.test.outcome }} |"
+            echo "| Statement coverage | **${TOTAL}** |"
+            echo "| \`RUN_INTEGRATION\` | \`1\` (Compose Postgres + Redis) |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: backend-main-test-reports-${{ github.run_number }}
+          path: |
+            backend/reports/coverage.html
+            backend/reports/coverage.out
+            backend/reports/coverage.txt
+            backend/reports/junit.xml
+            backend/reports/test.json
+          if-no-files-found: warn
+          retention-days: 30
+
+  frontend:
+    name: Frontend Jest
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Jest
+        id: test
+        run: npm test
+
+      - name: Write job summary
+        if: always()
+        run: |
+          {
+            echo "## Frontend Jest"
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Commit | \`${{ github.sha }}\` |"
+            echo "| Result | ${{ steps.test.outcome }} |"
+          } >> "$GITHUB_STEP_SUMMARY"

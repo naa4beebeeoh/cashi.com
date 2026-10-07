@@ -76,4 +76,4 @@ Production-minded MVP: the main screen is a **customer spend/earn flow**; interv
 ## Demo / CI pointers
 
 - Demo: see `README.md` (`./scripts/use-env.sh demo`, Compose, API, Expo web/Android).
-- CI: `.github/workflows/backend-unit.yml` runs backend unit tests on pushes/PRs to `main` and uploads coverage/JUnit artifacts.
+- CI: PRs to `main` → `.github/workflows/backend-unit.yml` (unit only). Pushes to `main` → `.github/workflows/main-tests.yml` (backend unit + `RUN_INTEGRATION=1` + frontend Jest).
