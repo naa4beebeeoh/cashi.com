@@ -16,16 +16,34 @@ func TestCampaignDayUsesJakartaCalendar(t *testing.T) {
 	}
 	svc := &Service{loc: loc}
 
-	// 2026-03-20 17:30 UTC == 2026-03-21 00:30 Asia/Jakarta
-	utcEvening := time.Date(2026, 3, 20, 17, 30, 0, 0, time.UTC)
-	if got := svc.CampaignDay(utcEvening); got != "2026-03-21" {
-		t.Fatalf("got %s want 2026-03-21", got)
+	// Asia/Jakarta is UTC+7 with no DST. Midnight WIB = 17:00:00 UTC previous calendar day.
+	tests := []struct {
+		name string
+		utc  time.Time
+		want string
+	}{
+		{
+			name: "last second before Jakarta midnight stays previous day",
+			utc:  time.Date(2026, 3, 20, 16, 59, 59, 0, time.UTC), // == 2026-03-20 23:59:59 WIB
+			want: "2026-03-20",
+		},
+		{
+			name: "exact Jakarta midnight rolls to next day",
+			utc:  time.Date(2026, 3, 20, 17, 0, 0, 0, time.UTC), // == 2026-03-21 00:00:00 WIB
+			want: "2026-03-21",
+		},
+		{
+			name: "one second after Jakarta midnight is next day",
+			utc:  time.Date(2026, 3, 20, 17, 0, 1, 0, time.UTC), // == 2026-03-21 00:00:01 WIB
+			want: "2026-03-21",
+		},
 	}
-
-	// Still previous Jakarta day just before midnight WIB
-	utcBefore := time.Date(2026, 3, 20, 16, 59, 0, 0, time.UTC)
-	if got := svc.CampaignDay(utcBefore); got != "2026-03-20" {
-		t.Fatalf("got %s want 2026-03-20", got)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := svc.CampaignDay(tt.utc); got != tt.want {
+				t.Fatalf("got %s want %s", got, tt.want)
+			}
+		})
 	}
 }
 
